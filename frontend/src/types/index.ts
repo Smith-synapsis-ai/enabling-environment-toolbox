@@ -64,6 +64,24 @@ export interface ToolDetail extends ToolSearchResult {
   updated_at: string;
 }
 
+export interface WikiToolDetail extends ToolDetail {
+  how_it_works_steps: string[] | null;
+  how_it_works_duration: string | null;
+  how_it_works_inputs: string | null;
+  requirements_technical: string | null;
+  requirements_human: string | null;
+  requirements_institutional: string | null;
+  expected_direct_outputs: string | null;
+  expected_impact: string | null;
+  expected_evidence: string | null;
+  practical_examples: Array<{ location: string; description: string; key_result: string }>;
+  limitations: string;
+  key_takeaways: string[];
+  full_citation: string;
+  content_richness: string;
+  extraction_confidence: string;
+}
+
 export interface CatalogSearchRequest {
   pillars?: string[];
   domains?: string[];
@@ -170,6 +188,15 @@ export const TYPE_COLORS: Record<string, string> = {
   'Scorecard': '#C62828',
   'Brief': '#F57F17',
   'Scale': '#AD1457',
+  'Academic Paper': '#1565C0',
+  'Report': '#0D47A1',
+  'Training Manual': '#E65100',
+  'Case Study': '#6A1B9A',
+  'Guidelines': '#00838F',
+  'Presentation': '#BF360C',
+  'Program Description': '#33691E',
+  'Policy Brief': '#F57F17',
+  'Other': '#607D8B',
 };
 
 /** Returns true if the TYPE_COLOR for this type needs dark text instead of white for WCAG AA contrast */
@@ -179,11 +206,14 @@ export function typeBadgeNeedsDarkText(type: string): boolean {
 }
 
 export const PILLARS = [
-  'Gender Equality and Social Inclusion',
-  'Monitoring, Evaluation and Learning',
-  'Policy and Regulatory',
+  'Policy & Regulatory',
+  'Gender Equality & Social Inclusion',
   'Market Systems',
-  'Digital and Financial Services',
+  'Digital',
+  'Financial Services',
+  'M&E & Learning',
+  'Climate Resilience',
+  'Scaling Innovations',
 ];
 
 export const DOMAINS = [
@@ -193,8 +223,11 @@ export const DOMAINS = [
 ];
 
 export const TYPES = [
-  'Method', 'Framework', 'Manual', 'Toolkit', 'Tool',
-  'Guide', 'Matrix', 'Scorecard', 'Brief', 'Scale',
+  'Academic Paper', 'Report', 'Training Manual', 'Framework',
+  'Case Study', 'Guidelines', 'Tool', 'Presentation',
+  'Program Description', 'Policy Brief', 'Other',
+  'Method', 'Manual', 'Toolkit', 'Guide', 'Matrix',
+  'Scorecard', 'Brief', 'Scale',
 ];
 
 export const STAGES = [

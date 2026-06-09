@@ -11,7 +11,14 @@ import type {
   RatingsResponse,
   AdminToolsResponse,
   ToolCreate,
+  Facets,
+  WikiToolDetail,
 } from '../types';
+import { tools, getToolById, getAllTools } from '../data/tools';
+
+// ---------------------------------------------------------------------------
+// Session helper (still used by other parts of the app)
+// ---------------------------------------------------------------------------
 
 function getSessionId(): string {
   let sessionId = localStorage.getItem('ee-session-id');
@@ -22,174 +29,282 @@ function getSessionId(): string {
   return sessionId;
 }
 
-// API base URL: empty string for local dev (Vite proxy handles /api),
-// set VITE_API_BASE_URL for production (e.g., https://api-ee-toolbox.synapsis-analytics.com)
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+// ---------------------------------------------------------------------------
+// Helper: compute facet counts from a filtered set of tools
+// ---------------------------------------------------------------------------
 
-function getUtmHeaders(): Record<string, string> {
-  const headers: Record<string, string> = {};
-  const source = sessionStorage.getItem('ee-utm-source');
-  const medium = sessionStorage.getItem('ee-utm-medium');
-  const campaign = sessionStorage.getItem('ee-utm-campaign');
-  if (source) headers['X-UTM-Source'] = source;
-  if (medium) headers['X-UTM-Medium'] = medium;
-  if (campaign) headers['X-UTM-Campaign'] = campaign;
-  return headers;
-}
-
-async function request<T>(
-  url: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'X-Session-ID': getSessionId(),
-    ...getUtmHeaders(),
-    ...(options.headers as Record<string, string> || {}),
+function computeFacets(filtered: WikiToolDetail[]): Facets {
+  const facets: Facets = {
+    pillars: {},
+    domains: {},
+    type: {},
+    stage: {},
+    target_users: {},
+    geography: {},
   };
 
-  const fullUrl = `${API_BASE}${url}`;
-  const response = await fetch(fullUrl, {
-    ...options,
-    headers,
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => 'Unknown error');
-    throw new Error(`API error ${response.status}: ${errorText}`);
+  for (const tool of filtered) {
+    // Pillars
+    for (const p of tool.pillars) {
+      facets.pillars[p] = (facets.pillars[p] || 0) + 1;
+    }
+    // Domains
+    for (const d of tool.domains) {
+      facets.domains[d] = (facets.domains[d] || 0) + 1;
+    }
+    // Type
+    if (tool.type) {
+      facets.type[tool.type] = (facets.type[tool.type] || 0) + 1;
+    }
+    // Stage
+    if (tool.stage) {
+      facets.stage[tool.stage] = (facets.stage[tool.stage] || 0) + 1;
+    }
+    // Target users
+    for (const u of tool.target_users) {
+      facets.target_users[u] = (facets.target_users[u] || 0) + 1;
+    }
+    // Geography
+    for (const g of tool.geography) {
+      facets.geography[g] = (facets.geography[g] || 0) + 1;
+    }
   }
 
-  return response.json();
+  return facets;
 }
+
+// ---------------------------------------------------------------------------
+// Helper: simple keyword matching
+// ---------------------------------------------------------------------------
+
+function matchesKeyword(tool: WikiToolDetail, keyword: string): boolean {
+  const lower = keyword.toLowerCase();
+  return (
+    tool.title.toLowerCase().includes(lower) ||
+    tool.summary.toLowerCase().includes(lower) ||
+    tool.what_it_does.toLowerCase().includes(lower) ||
+    tool.who_its_for.toLowerCase().includes(lower) ||
+    tool.when_to_use_it.toLowerCase().includes(lower)
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Public API — same function signatures as before
+// ---------------------------------------------------------------------------
 
 export async function fetchMetrics(): Promise<Metrics> {
-  return request<Metrics>('/api/metrics');
+  const allTools = getAllTools();
+  const uniqueCountries = new Set<string>();
+  let frameworkCount = 0;
+
+  for (const tool of allTools) {
+    for (const g of tool.geography) {
+      uniqueCountries.add(g);
+    }
+    if (
+      tool.type === 'Framework' ||
+      tool.pillars.length > 0
+    ) {
+      frameworkCount++;
+    }
+  }
+
+  return {
+    total_tools: allTools.length,
+    total_frameworks: frameworkCount,
+    geography_coverage: uniqueCountries.size,
+    total_searches: 0,
+    avg_rating: 0,
+  };
 }
 
-export async function sendChatMessage(data: ChatRequest): Promise<ChatResponse> {
-  return request<ChatResponse>('/api/chat', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
+export async function sendChatMessage(_data: ChatRequest): Promise<ChatResponse> {
+  return {
+    conversation_id: crypto.randomUUID(),
+    message:
+      'The AI chat assistant is not yet connected in this version. ' +
+      'Please use the catalog search to browse and filter tools, or try the semantic search.',
+    tools_recommended: null,
+    conversation_complete: false,
+  };
 }
 
 export async function searchCatalog(data: CatalogSearchRequest): Promise<CatalogSearchResponse> {
-  return request<CatalogSearchResponse>('/api/search/catalog', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
+  let filtered = [...getAllTools()] as WikiToolDetail[];
+
+  // Apply filters
+  if (data.pillars && data.pillars.length > 0) {
+    filtered = filtered.filter(t =>
+      data.pillars!.some(p => t.pillars.includes(p))
+    );
+  }
+  if (data.domains && data.domains.length > 0) {
+    filtered = filtered.filter(t =>
+      data.domains!.some(d => t.domains.includes(d))
+    );
+  }
+  if (data.type) {
+    filtered = filtered.filter(t => t.type === data.type);
+  }
+  if (data.stage) {
+    filtered = filtered.filter(t => t.stage === data.stage);
+  }
+  if (data.target_users && data.target_users.length > 0) {
+    filtered = filtered.filter(t =>
+      data.target_users!.some(u => t.target_users.includes(u))
+    );
+  }
+  if (data.geography && data.geography.length > 0) {
+    filtered = filtered.filter(t =>
+      data.geography!.some(g => t.geography.includes(g))
+    );
+  }
+  if (data.keyword) {
+    filtered = filtered.filter(t => matchesKeyword(t, data.keyword!));
+  }
+
+  // Compute facets from filtered results
+  const facets = computeFacets(filtered);
+
+  // Sort
+  const sortBy = data.sort_by || 'relevance';
+  if (sortBy === 'date') {
+    filtered.sort((a, b) => {
+      const da = a.date_published || '';
+      const db = b.date_published || '';
+      return db.localeCompare(da);
+    });
+  } else if (sortBy === 'rating') {
+    filtered.sort((a, b) => b.average_rating - a.average_rating);
+  }
+  // 'relevance' keeps original order (or keyword match order)
+
+  // Paginate
+  const page = data.page || 1;
+  const pageSize = data.page_size || 12;
+  const start = (page - 1) * pageSize;
+  const paged = filtered.slice(start, start + pageSize);
+
+  return {
+    total: filtered.length,
+    page,
+    page_size: pageSize,
+    results: paged,
+    facets,
+  };
 }
 
 export async function searchSemantic(data: SemanticSearchRequest): Promise<SemanticSearchResponse> {
-  return request<SemanticSearchResponse>('/api/search/semantic', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
+  const query = data.query.toLowerCase();
+  const topN = data.top_n || 10;
+  const allTools = getAllTools();
+
+  // Simple keyword-based relevance scoring
+  const scored = allTools
+    .map(tool => {
+      let score = 0;
+      const fields = [tool.title, tool.summary, tool.what_it_does, tool.who_its_for, tool.when_to_use_it];
+      for (const field of fields) {
+        if (field.toLowerCase().includes(query)) {
+          score += 1;
+        }
+      }
+      // Boost title matches
+      if (tool.title.toLowerCase().includes(query)) {
+        score += 2;
+      }
+      return { tool: { ...tool, similarity: score / 5 }, score };
+    })
+    .filter(item => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topN);
+
+  return {
+    query: data.query,
+    total_results: scored.length,
+    results: scored.map(s => s.tool),
+  };
 }
 
 export async function fetchTool(id: string): Promise<ToolDetail> {
-  return request<ToolDetail>(`/api/tools/${id}`);
+  const tool = getToolById(id);
+  if (!tool) {
+    throw new Error(`Tool not found: ${id}`);
+  }
+  return tool;
 }
 
-export async function rateTool(id: string, data: RateRequest): Promise<void> {
-  await request<unknown>(`/api/tools/${id}/rate`, {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
+export async function rateTool(_id: string, _data: RateRequest): Promise<void> {
+  // No-op in static mode — rating is not persisted
 }
 
 export async function fetchRatings(id: string): Promise<RatingsResponse> {
-  return request<RatingsResponse>(`/api/tools/${id}/ratings`);
+  return {
+    tool_id: id,
+    average: 0,
+    count: 0,
+    distribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 },
+  };
 }
 
 // ---------------------------------------------------------------------------
-// Admin API
+// Admin API — stubs (no backend in static mode)
 // ---------------------------------------------------------------------------
-
-function getAdminToken(): string | null {
-  return localStorage.getItem('admin-token');
-}
-
-function adminHeaders(): Record<string, string> {
-  const token = getAdminToken();
-  if (!token) throw new Error('Not authenticated');
-  return { Authorization: `Bearer ${token}` };
-}
 
 export async function adminLogin(
-  username: string,
-  password: string
+  _username: string,
+  _password: string
 ): Promise<{ token: string }> {
-  return request<{ token: string }>('/api/admin/login', {
-    method: 'POST',
-    body: JSON.stringify({ username, password }),
-  });
+  throw new Error('Admin login is not available in static mode');
 }
 
-export async function fetchAdminTools(params: {
+export async function fetchAdminTools(_params: {
   page?: number;
   page_size?: number;
   keyword?: string;
   sort_by?: string;
 }): Promise<AdminToolsResponse> {
-  const query = new URLSearchParams();
-  if (params.page) query.set('page', String(params.page));
-  if (params.page_size) query.set('page_size', String(params.page_size));
-  if (params.keyword) query.set('keyword', params.keyword);
-  if (params.sort_by) query.set('sort_by', params.sort_by);
-  const qs = query.toString();
-  return request<AdminToolsResponse>(`/api/admin/tools${qs ? `?${qs}` : ''}`, {
-    headers: adminHeaders(),
-  });
+  return {
+    total: tools.length,
+    page: 1,
+    page_size: 20,
+    tools: tools.slice(0, 20),
+  };
 }
 
-export async function createTool(data: ToolCreate): Promise<ToolDetail> {
-  return request<ToolDetail>('/api/admin/tools', {
-    method: 'POST',
-    body: JSON.stringify(data),
-    headers: adminHeaders(),
-  });
+export async function createTool(_data: ToolCreate): Promise<ToolDetail> {
+  throw new Error('Tool creation is not available in static mode');
 }
 
 export async function updateTool(
-  id: string,
-  data: Partial<ToolCreate>
+  _id: string,
+  _data: Partial<ToolCreate>
 ): Promise<ToolDetail> {
-  return request<ToolDetail>(`/api/admin/tools/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-    headers: adminHeaders(),
-  });
+  throw new Error('Tool update is not available in static mode');
 }
 
-export async function deleteTool(id: string): Promise<void> {
-  await request<unknown>(`/api/admin/tools/${id}`, {
-    method: 'DELETE',
-    headers: adminHeaders(),
-  });
+export async function deleteTool(_id: string): Promise<void> {
+  throw new Error('Tool deletion is not available in static mode');
 }
 
 // ---------------------------------------------------------------------------
-// Email Capture
+// Email Capture — no-op in static mode
 // ---------------------------------------------------------------------------
 
-export async function captureEmail(email: string, sessionId: string): Promise<void> {
-  await request<unknown>('/api/email-capture', {
-    method: 'POST',
-    body: JSON.stringify({ email, session_id: sessionId }),
-  });
+export async function captureEmail(_email: string, _sessionId: string): Promise<void> {
+  // No-op
 }
 
 // ---------------------------------------------------------------------------
-// Tool Save / Bookmark
+// Tool Save / Bookmark — local-only in static mode
 // ---------------------------------------------------------------------------
 
-export async function saveTool(toolId: string): Promise<void> {
-  await request<unknown>(`/api/tools/${toolId}/save`, { method: 'POST' });
+export async function saveTool(_toolId: string): Promise<void> {
+  // No-op — save state is handled by localStorage in the component
 }
 
-export async function unsaveTool(toolId: string): Promise<void> {
-  await request<unknown>(`/api/tools/${toolId}/save`, { method: 'DELETE' });
+export async function unsaveTool(_toolId: string): Promise<void> {
+  // No-op — save state is handled by localStorage in the component
 }
 
 // ---------------------------------------------------------------------------
