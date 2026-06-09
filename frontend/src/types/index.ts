@@ -25,11 +25,18 @@ export interface ChatResponse {
   conversation_complete: boolean;
 }
 
+// Chat action types for interactive responses
+export type ChatAction =
+  | { type: 'quick_reply'; options: string[] }
+  | { type: 'single_select'; label: string; options: string[] }
+  | { type: 'multi_select'; label: string; options: string[] };
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   tools_recommended?: ToolRecommendation[] | null;
+  actions?: ChatAction[]; // Interactive response options
 }
 
 export interface ToolSearchResult {
@@ -199,10 +206,14 @@ export const TYPE_COLORS: Record<string, string> = {
   'Other': '#607D8B',
 };
 
-/** Returns true if the TYPE_COLOR for this type needs dark text instead of white for WCAG AA contrast */
+/** Returns true if the TYPE_COLOR for this type needs dark text instead of white for WCAG AA contrast.
+ *  Covers types whose background color fails WCAG 4.5:1 contrast with white text:
+ *  - Brief / Policy Brief (#F57F17) -- 3.3:1 with white
+ *  - Manual / Training Manual (#E65100) -- 3.9:1 with white
+ *  - Other (#607D8B) -- 4.1:1 with white
+ */
 export function typeBadgeNeedsDarkText(type: string): boolean {
-  // Brief (#F57F17) is the only remaining light-enough background to need dark text
-  return type === 'Brief';
+  return ['Brief', 'Policy Brief', 'Manual', 'Training Manual', 'Other'].includes(type);
 }
 
 export const PILLARS = [

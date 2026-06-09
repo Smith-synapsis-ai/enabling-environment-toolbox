@@ -54,7 +54,7 @@ export default function StarRating({ toolId, initialAverage = 0, initialCount = 
 
   return (
     <div className="flex items-center gap-3">
-      <div className="flex gap-0.5" role="group" aria-label="Star rating"  >
+      <div className="flex gap-0.5" role="group" aria-label="Star rating">
         {[1, 2, 3, 4, 5].map(star => {
           const filled = hoveredStar > 0 ? star <= hoveredStar : star <= Math.round(average);
           return (
@@ -65,7 +65,7 @@ export default function StarRating({ toolId, initialAverage = 0, initialCount = 
               onMouseLeave={() => setHoveredStar(0)}
               disabled={submitting}
               className="p-0.5 transition-transform hover:scale-110 disabled:cursor-not-allowed"
-              aria-label={`Rate ${star} stars`}
+              aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
             >
               <Star
                 size={20}
@@ -74,6 +74,7 @@ export default function StarRating({ toolId, initialAverage = 0, initialCount = 
                     ? 'fill-yellow-400 text-yellow-400'
                     : 'fill-none text-gray-300'
                 }`}
+                aria-hidden="true"
               />
             </button>
           );
@@ -83,7 +84,7 @@ export default function StarRating({ toolId, initialAverage = 0, initialCount = 
         {average > 0 ? average.toFixed(1) : '0.0'} ({count} {count === 1 ? 'rating' : 'ratings'})
       </span>
       {submitted && (
-        <span className="text-xs text-cgiar-accent font-medium animate-fade-in">
+        <span className="text-xs text-cgiar-accent font-medium animate-fade-in" role="status">
           Thank you!
         </span>
       )}

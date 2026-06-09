@@ -1,3 +1,8 @@
+/**
+ * @deprecated Use `useCatalogContext()` from `contexts/CatalogContext` instead.
+ * This hook creates local state that is lost on route changes. The CatalogContext
+ * persists state and caches results across navigations.
+ */
 import { useState, useCallback, useEffect } from 'react';
 import type {
   CatalogSearchRequest,

@@ -133,7 +133,7 @@ export default function EmailCaptureModal({ toolViewCount }: EmailCaptureModalPr
           className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors"
           aria-label="Close email subscription dialog"
         >
-          <X size={20} />
+          <X size={20} aria-hidden="true" />
         </button>
 
         {submitted ? (

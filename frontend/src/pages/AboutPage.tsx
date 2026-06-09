@@ -128,7 +128,7 @@ export default function AboutPage() {
       {/* ------------------------------------------------------------------ */}
       <div className="bg-cgiar-dark text-white py-16">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <Leaf size={40} className="text-cgiar-accent mx-auto mb-4" />
+          <Leaf size={40} className="text-cgiar-accent mx-auto mb-4" aria-hidden="true" />
           <h1 className="text-3xl sm:text-4xl font-bold mb-4">
             About the Enabling Environment
           </h1>
@@ -162,7 +162,7 @@ export default function AboutPage() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
         {/* Mission */}
         <div className="flex items-center gap-2 mb-4">
-          <Target size={22} className="text-cgiar-accent" />
+          <Target size={22} className="text-cgiar-accent" aria-hidden="true" />
           <h2 className="text-2xl font-bold text-gray-900">Our Mission</h2>
         </div>
         <p className="text-gray-600 leading-relaxed mb-6">
@@ -175,7 +175,7 @@ export default function AboutPage() {
 
         {/* Background */}
         <div className="flex items-center gap-2 mb-4">
-          <Globe size={22} className="text-cgiar-accent" />
+          <Globe size={22} className="text-cgiar-accent" aria-hidden="true" />
           <h2 className="text-2xl font-bold text-gray-900">Background</h2>
         </div>
         <p className="text-gray-600 leading-relaxed mb-6">
@@ -235,7 +235,7 @@ export default function AboutPage() {
               <div className="w-10 h-10 rounded-full bg-cgiar-accent text-white text-lg font-bold flex items-center justify-center mx-auto mb-4">
                 {item.step}
               </div>
-              <item.icon size={28} className="text-cgiar-accent mx-auto mb-3" />
+              <item.icon size={28} className="text-cgiar-accent mx-auto mb-3" aria-hidden="true" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 {item.title}
               </h3>
@@ -252,7 +252,7 @@ export default function AboutPage() {
             className="inline-flex items-center gap-2 text-cgiar-green font-medium hover:underline focus:underline"
           >
             View the full tutorial
-            <ArrowRight size={16} />
+            <ArrowRight size={16} aria-hidden="true" />
           </a>
         </div>
       </div>
@@ -276,7 +276,7 @@ export default function AboutPage() {
                 key={pillar.title}
                 className="bg-cgiar-light rounded-xl p-6"
               >
-                <pillar.icon size={28} className="text-cgiar-accent mb-3" />
+                <pillar.icon size={28} className="text-cgiar-accent mb-3" aria-hidden="true" />
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
                   {pillar.title}
                 </h3>
@@ -328,7 +328,7 @@ export default function AboutPage() {
       <div className="bg-white py-14">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <Users size={22} className="text-cgiar-accent" />
+            <Users size={22} className="text-cgiar-accent" aria-hidden="true" />
             <h2 className="text-2xl font-bold text-gray-900">
               Meet the Team
             </h2>
@@ -373,7 +373,7 @@ export default function AboutPage() {
       <footer className="bg-cgiar-dark text-white py-12">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <Leaf size={24} className="text-cgiar-accent" />
+            <Leaf size={24} className="text-cgiar-accent" aria-hidden="true" />
             <span className="text-lg font-bold">CGIAR</span>
           </div>
           <p className="text-white/80 text-sm max-w-xl mx-auto leading-relaxed mb-2">
@@ -394,7 +394,7 @@ export default function AboutPage() {
             className="inline-flex items-center gap-1.5 text-cgiar-accent text-sm font-medium hover:underline"
           >
             Learn more about CGIAR
-            <ExternalLink size={14} />
+            <ExternalLink size={14} aria-hidden="true" />
           </a>
         </div>
       </footer>

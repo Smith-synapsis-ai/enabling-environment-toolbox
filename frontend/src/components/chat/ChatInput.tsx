@@ -36,15 +36,20 @@ export default function ChatInput({ onSend, disabled = false, placeholder }: Cha
         onKeyDown={handleKeyDown}
         disabled={disabled}
         placeholder={placeholder || 'Type your response...'}
-        className="flex-1 px-4 py-3 bg-white/10 border border-white/20 rounded-full text-white text-sm placeholder-white/60 focus:outline-none focus:border-cgiar-accent focus:ring-1 focus:ring-cgiar-accent transition-colors disabled:opacity-50"
+        className="flex-1 px-4 py-3 bg-white/10 border border-white/20 rounded-full text-white text-sm placeholder-white/50 focus:outline-none focus:border-s4i-purple/60 focus:ring-2 focus:ring-s4i-purple/30 focus:bg-white/[0.12] transition-all disabled:opacity-50"
       />
       <button
         type="submit"
         disabled={!value.trim() || disabled}
-        className="w-10 h-10 bg-cgiar-accent hover:bg-cgiar-green disabled:bg-white/10 disabled:text-white/30 rounded-full flex items-center justify-center text-white transition-colors flex-shrink-0"
+        className="w-10 h-10 rounded-full flex items-center justify-center text-white transition-all flex-shrink-0 disabled:bg-white/10 disabled:text-white/30 hover:shadow-lg hover:shadow-s4i-purple/20 active:scale-95"
+        style={{
+          background: !value.trim() || disabled
+            ? undefined
+            : 'linear-gradient(135deg, #2D5A3D, #7904B4)',
+        }}
         aria-label="Send message"
       >
-        <SendHorizonal size={16} />
+        <SendHorizonal size={16} aria-hidden="true" />
       </button>
     </form>
   );

@@ -37,26 +37,28 @@ export default function Pagination({ page, pageSize, total, onPageChange }: Pagi
   };
 
   return (
-    <div className="flex items-center justify-center gap-1 mt-8">
+    <nav aria-label="Pagination" className="flex items-center justify-center gap-1 mt-8">
       <button
         onClick={() => onPageChange(page - 1)}
         disabled={page === 1}
         className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         aria-label="Previous page"
       >
-        <ChevronLeft size={18} />
+        <ChevronLeft size={18} aria-hidden="true" />
       </button>
 
       {getPageNumbers().map((p, i) =>
         p === 'ellipsis' ? (
-          <span key={`e-${i}`} className="px-2 text-gray-400">...</span>
+          <span key={`e-${i}`} className="px-2 text-gray-400" aria-hidden="true">...</span>
         ) : (
           <button
             key={p}
             onClick={() => onPageChange(p)}
-            className={`w-9 h-9 rounded-lg text-sm font-medium transition-colors ${
+            aria-label={`Page ${p}`}
+            aria-current={p === page ? 'page' : undefined}
+            className={`w-9 h-9 rounded-lg text-sm font-bold transition-colors ${
               p === page
-                ? 'bg-cgiar-accent text-white'
+                ? 'bg-cgiar-green text-white'
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
@@ -71,8 +73,8 @@ export default function Pagination({ page, pageSize, total, onPageChange }: Pagi
         className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         aria-label="Next page"
       >
-        <ChevronRight size={18} />
+        <ChevronRight size={18} aria-hidden="true" />
       </button>
-    </div>
+    </nav>
   );
 }

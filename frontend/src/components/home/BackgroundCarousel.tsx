@@ -38,30 +38,30 @@ export default function BackgroundCarousel({ isBlurred = false }: BackgroundCaro
           <>
             <img
               src="/hero-bg.png"
-              alt="Agricultural landscape"
+              alt=""
               className="w-full h-full object-cover"
             />
             <div
               className="absolute inset-0"
-              style={{ backgroundColor: 'rgba(20, 50, 35, 0.75)' }}
+              style={{ backgroundColor: 'rgba(3, 53, 41, 0.75)' }}
             />
           </>
         ) : (
-          <div className="absolute inset-0" style={{ backgroundColor: '#1B3B2F' }} />
+          <div className="absolute inset-0 bg-cgiar-dark" />
         )}
       </div>
 
-      {/* Dot navigation — stays outside blur wrapper */}
-      <div className="absolute bottom-28 right-8 flex flex-col gap-2 z-10">
+      {/* Dot navigation — decorative only (no carousel functionality yet)
+           WCAG 2.1.1: removed from tab order since they're non-functional */}
+      <div className="absolute bottom-28 right-8 flex flex-col gap-2 z-10" aria-hidden="true">
         {Array.from({ length: totalSlides }).map((_, i) => (
-          <button
+          <div
             key={i}
             className={`w-2.5 h-2.5 rounded-full transition-all ${
               i === activeSlide
                 ? 'bg-white scale-110'
-                : 'bg-white/40 hover:bg-white/60'
+                : 'bg-white/60'
             }`}
-            aria-label={`Slide ${i + 1}`}
           />
         ))}
       </div>

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import HeroSection from '../components/home/HeroSection';
 import ChatInterface from '../components/chat/ChatInterface';
 import BackgroundCarousel from '../components/home/BackgroundCarousel';
@@ -23,6 +23,11 @@ export default function HomePage({ onToolViewed, onSearchPerformed }: HomePagePr
   } = useChat();
 
   const [selectedToolId, setSelectedToolId] = useState<string | null>(null);
+
+  // WCAG 2.4.2 — update document title for this page
+  useEffect(() => {
+    document.title = 'Enabling Environment Toolbox | CGIAR Scaling for Impact';
+  }, []);
 
   const handleSendMessage = useCallback((msg: string) => {
     onSearchPerformed?.();

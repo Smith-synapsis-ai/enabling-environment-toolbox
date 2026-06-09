@@ -98,10 +98,34 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
     scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Close on Escape key
+  // Close on Escape key + focus trap
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') {
       onClose();
+      return;
+    }
+
+    // Focus trap: cycle focus within the modal
+    if (e.key === 'Tab' && scrollContainerRef.current) {
+      const focusable = scrollContainerRef.current.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     }
   }, [onClose]);
 
@@ -222,7 +246,7 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
           className="absolute top-4 right-4 z-10 w-10 h-10 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-md transition-colors"
           aria-label="Close tool details"
         >
-          <X size={20} className="text-gray-600" />
+          <X size={20} className="text-gray-600" aria-hidden="true" />
         </button>
 
         {loading && (
@@ -273,7 +297,7 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
                 {tool.authors.length > 0 && (
                   <div className="flex items-center gap-2 bg-gray-50 rounded-full px-3.5 py-1.5">
                     <div className="w-6 h-6 rounded-full bg-cgiar-accent/10 flex items-center justify-center">
-                      <User size={12} className="text-cgiar-green" />
+                      <User size={12} className="text-cgiar-green" aria-hidden="true" />
                     </div>
                     <span className="text-sm text-gray-700">{tool.authors.slice(0, 3).join(', ')}{tool.authors.length > 3 ? ` +${tool.authors.length - 3} more` : ''}</span>
                   </div>
@@ -281,7 +305,7 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
                 {tool.date_published && (
                   <div className="flex items-center gap-2 bg-gray-50 rounded-full px-3.5 py-1.5">
                     <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center">
-                      <Calendar size={12} className="text-blue-600" />
+                      <Calendar size={12} className="text-blue-600" aria-hidden="true" />
                     </div>
                     <span className="text-sm font-medium text-gray-700">{new Date(tool.date_published).getFullYear()}</span>
                   </div>
@@ -289,7 +313,7 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
                 {tool.source_organization && (
                   <div className="flex items-center gap-2 bg-gray-50 rounded-full px-3.5 py-1.5">
                     <div className="w-6 h-6 rounded-full bg-amber-50 flex items-center justify-center">
-                      <Building2 size={12} className="text-amber-600" />
+                      <Building2 size={12} className="text-amber-600" aria-hidden="true" />
                     </div>
                     <span className="text-sm text-gray-700">{tool.source_organization}</span>
                   </div>
@@ -314,7 +338,7 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
                 const available = sections.filter(s => s.available);
                 if (available.length < 3) return null;
                 return (
-                  <div className="flex flex-wrap gap-1.5 mb-6 pb-4 border-b border-gray-100">
+                  <nav aria-label="Tool sections" className="flex flex-wrap gap-1.5 mb-6 pb-4 border-b border-gray-100">
                     {available.map(s => (
                       <button
                         key={s.id}
@@ -327,7 +351,7 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
                         {s.label}
                       </button>
                     ))}
-                  </div>
+                  </nav>
                 );
               })()}
 
@@ -433,13 +457,13 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
                     <div className="flex flex-wrap gap-4 mb-4">
                       {hasDuration && (
                         <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-600">
-                          <Clock size={14} className="text-cgiar-accent" />
+                          <Clock size={14} className="text-cgiar-accent" aria-hidden="true" />
                           <span className="font-medium">Duration:</span> {tool!.how_it_works_duration}
                         </div>
                       )}
                       {hasInputs && (
                         <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-600">
-                          <FileInput size={14} className="text-cgiar-accent" />
+                          <FileInput size={14} className="text-cgiar-accent" aria-hidden="true" />
                           <span className="font-medium">Inputs:</span> {tool!.how_it_works_inputs}
                         </div>
                       )}
@@ -470,7 +494,7 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
                     {tool!.requirements_technical && (
                       <div className="bg-gray-50 rounded-lg p-4">
                         <div className="flex items-center gap-2 mb-2">
-                          <Monitor size={14} className="text-blue-600" />
+                          <Monitor size={14} className="text-blue-600" aria-hidden="true" />
                           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Technical</span>
                         </div>
                         <p className="text-sm text-gray-600 leading-relaxed">{tool!.requirements_technical}</p>
@@ -479,7 +503,7 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
                     {tool!.requirements_human && (
                       <div className="bg-gray-50 rounded-lg p-4">
                         <div className="flex items-center gap-2 mb-2">
-                          <Users size={14} className="text-green-600" />
+                          <Users size={14} className="text-green-600" aria-hidden="true" />
                           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Human</span>
                         </div>
                         <p className="text-sm text-gray-600 leading-relaxed">{tool!.requirements_human}</p>
@@ -488,7 +512,7 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
                     {tool!.requirements_institutional && (
                       <div className="bg-gray-50 rounded-lg p-4">
                         <div className="flex items-center gap-2 mb-2">
-                          <Landmark size={14} className="text-purple-600" />
+                          <Landmark size={14} className="text-purple-600" aria-hidden="true" />
                           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Institutional</span>
                         </div>
                         <p className="text-sm text-gray-600 leading-relaxed">{tool!.requirements_institutional}</p>
@@ -505,7 +529,7 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
                   <div className="space-y-4">
                     {tool!.expected_direct_outputs && (
                       <div className="flex gap-3">
-                        <Target size={16} className="text-cgiar-accent flex-shrink-0 mt-0.5" />
+                        <Target size={16} className="text-cgiar-accent flex-shrink-0 mt-0.5" aria-hidden="true" />
                         <div>
                           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">Direct Outputs</span>
                           <p className="text-sm text-gray-600 leading-relaxed">{tool!.expected_direct_outputs}</p>
@@ -514,7 +538,7 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
                     )}
                     {tool!.expected_impact && (
                       <div className="flex gap-3">
-                        <TrendingUp size={16} className="text-cgiar-accent flex-shrink-0 mt-0.5" />
+                        <TrendingUp size={16} className="text-cgiar-accent flex-shrink-0 mt-0.5" aria-hidden="true" />
                         <div>
                           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">Intended Impact</span>
                           <p className="text-sm text-gray-600 leading-relaxed">{tool!.expected_impact}</p>
@@ -524,7 +548,7 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
                     {tool!.expected_evidence && (
                       <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
                         <div className="flex gap-3">
-                          <BarChart3 size={16} className="text-emerald-600 flex-shrink-0 mt-0.5" />
+                          <BarChart3 size={16} className="text-emerald-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
                           <div>
                             <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wider block mb-1">Evidence of Effectiveness</span>
                             <p className="text-sm text-emerald-800 leading-relaxed">{tool!.expected_evidence}</p>
@@ -545,7 +569,7 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
                       <div key={i} className="bg-gray-50 rounded-lg p-4 border border-gray-100">
                         {example.location && (
                           <div className="flex items-center gap-1.5 mb-2">
-                            <MapPin size={12} className="text-orange-500" />
+                            <MapPin size={12} className="text-orange-500" aria-hidden="true" />
                             <span className="text-xs font-semibold text-orange-600 uppercase tracking-wider">
                               {example.location}
                             </span>
@@ -571,7 +595,7 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
                   <SectionHeading>Limitations</SectionHeading>
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                     <div className="flex gap-3">
-                      <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                      <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
                       <p className="text-sm text-amber-800 leading-relaxed">{tool!.limitations}</p>
                     </div>
                   </div>
@@ -585,7 +609,7 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
                   <ul className="space-y-2">
                     {tool!.key_takeaways.map((takeaway, i) => (
                       <li key={i} className="flex gap-2.5 text-sm text-gray-600 leading-relaxed">
-                        <CheckCircle2 size={16} className="text-cgiar-accent flex-shrink-0 mt-0.5" />
+                        <CheckCircle2 size={16} className="text-cgiar-accent flex-shrink-0 mt-0.5" aria-hidden="true" />
                         <span>{takeaway}</span>
                       </li>
                     ))}
@@ -599,7 +623,7 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
                   <SectionHeading>Source & Citation</SectionHeading>
                   <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
                     <div className="flex gap-3">
-                      <BookOpen size={16} className="text-gray-500 flex-shrink-0 mt-0.5" />
+                      <BookOpen size={16} className="text-gray-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
                       <p className="text-sm text-gray-600 leading-relaxed italic">{tool!.full_citation}</p>
                     </div>
                   </div>
@@ -609,8 +633,9 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 mt-3 text-sm text-cgiar-accent hover:text-cgiar-green font-medium transition-colors"
+                      aria-label={`View original source: ${tool!.title}`}
                     >
-                      <ExternalLink size={14} />
+                      <ExternalLink size={14} aria-hidden="true" />
                       View original source
                     </a>
                   )}
@@ -641,16 +666,18 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
                           ? 'bg-cgiar-accent/10 text-cgiar-green'
                           : 'text-gray-500 hover:bg-gray-100'
                       }`}
-                      title={isSaved ? 'Remove bookmark' : 'Bookmark this tool'}
+                      aria-pressed={isSaved}
+                      aria-label={isSaved ? 'Remove bookmark' : 'Bookmark this tool'}
                     >
-                      <Bookmark size={14} className={isSaved ? 'fill-current' : ''} />
+                      <Bookmark size={14} className={isSaved ? 'fill-current' : ''} aria-hidden="true" />
                       {isSaved ? 'Saved' : 'Save'}
                     </button>
                     <button
                       onClick={handleShare}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 transition-colors"
+                      aria-label={copied ? 'Link copied to clipboard' : 'Share tool link'}
                     >
-                      <Share2 size={14} />
+                      <Share2 size={14} aria-hidden="true" />
                       {copied ? 'Copied!' : 'Share'}
                     </button>
                   </div>
@@ -663,8 +690,9 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-cgiar-green/10 border border-cgiar-green/20 text-cgiar-green hover:bg-cgiar-green/20 font-medium text-sm transition-colors"
+                    aria-label={`View original resource: ${tool.title}`}
                   >
-                    <ExternalLink size={15} />
+                    <ExternalLink size={15} aria-hidden="true" />
                     View Original Resource on CG Space
                   </a>
                 )}
@@ -680,7 +708,7 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
             className="sticky bottom-4 ml-auto mr-4 mb-2 w-10 h-10 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors z-10"
             aria-label="Scroll to top"
           >
-            <ChevronUp size={18} className="text-gray-600" />
+            <ChevronUp size={18} className="text-gray-600" aria-hidden="true" />
           </button>
         )}
       </div>
