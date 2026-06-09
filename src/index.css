@@ -1,0 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme inline {
+  --color-brand-teal: #00524D;
+  --color-brand-teal-dark: #003D39;
+  --color-brand-teal-light: #E0F5F0;
+  --color-brand-teal-mid: #007A72;
+  --color-brand-purple: #6B21A8;
+  --color-brand-purple-light: #F3E8FF;
+  --color-brand-green: #16A34A;
+  --color-brand-green-light: #DCFCE7;
+  --color-brand-coral-light: #FCE4EC;
+  --color-brand-blue-light: #DBEAFE;
+  --color-page-bg: #F8F9FA;
+  --color-text-dark: #1A1A2E;
+  --color-text-mid: #4A5568;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: #F8F9FA;
+    color: #1A1A2E;
+    margin: 0;
+    padding: 0;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-weight: 700;
+  }
+}
+
+@layer utilities {
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  .line-clamp-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+}
