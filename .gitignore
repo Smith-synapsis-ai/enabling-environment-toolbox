@@ -1,34 +1,33 @@
-# Dependencies
-node_modules/
-
-# Build output
-dist/
-build/
-
-# Environment variables
+# Environment
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*.local
 
-# OS files
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# Node
+node_modules/
+
+# Build outputs
+dist/
+build/
+frontend/dist/
+
+# IDE
 .DS_Store
-Thumbs.db
-
-# IDE files
-.vscode/
 .idea/
+.vscode/
 *.swp
 *.swo
-*~
 
-# Vite / build artifacts
-*.local
-vite.config.ts.timestamp-*
+# Docker
+ee_toolbox_pgdata/
 
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
+# Data exports (keep data/seed.sql tracked — needed by Docker build)

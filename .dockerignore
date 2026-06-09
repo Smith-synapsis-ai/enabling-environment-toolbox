@@ -1,0 +1,29 @@
+# Directories not needed in Docker build context
+frontend/
+node_modules/
+.git/
+.github/
+infra/
+
+# IDE and OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Docker
+ee_toolbox_pgdata/
+Dockerfile
+.dockerignore
+
+# Environment
+.env
+.env.local
+.env.*.local

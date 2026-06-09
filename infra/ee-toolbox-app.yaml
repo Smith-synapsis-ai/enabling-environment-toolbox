@@ -1,0 +1,573 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  EE Toolbox - Application stack.
+  Creates ECS Fargate cluster/service, ALB, security groups,
+  and Route 53 record for the backend API.
+  ECR repository is created pre-emptively in the deploy workflow.
+
+# =============================================================================
+# Parameters
+# =============================================================================
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [mgmt, dev, tst, prd]
+    Default: mgmt
+    Description: Deployment environment
+
+  DBEndpoint:
+    Type: String
+    Description: RDS endpoint address (from database stack)
+
+  DBSecretArn:
+    Type: String
+    Description: ARN of the DB credentials secret (from database stack)
+
+  RDSSecurityGroupId:
+    Type: String
+    Description: Security group ID of the RDS instance (from database stack)
+
+  VpcId:
+    Type: String
+    Description: VPC for all resources
+
+  SubnetIds:
+    Type: CommaDelimitedList
+    Description: Public subnets across AZs
+
+  CertificateArn:
+    Type: String
+    Description: ACM wildcard certificate for *.synapsis-analytics.com
+
+  ImageTag:
+    Type: String
+    Default: latest
+    Description: Docker image tag to deploy
+
+  AnthropicApiKey:
+    Type: String
+    NoEcho: true
+    Description: Anthropic API key
+
+  OpenAIApiKey:
+    Type: String
+    NoEcho: true
+    Description: OpenAI API key
+
+  AdminPassword:
+    Type: String
+    NoEcho: true
+    Description: Admin password for the application
+
+# =============================================================================
+# Mappings
+# =============================================================================
+Mappings:
+  EnvironmentConfig:
+    dev:
+      Cpu: "512"
+      Memory: "1024"
+      LogRetention: 7
+      ApiDomain: dev-api-ee-toolbox.synapsis-analytics.com
+      FrontendDomain: dev-ee-toolbox.synapsis-analytics.com
+    tst:
+      Cpu: "512"
+      Memory: "1024"
+      LogRetention: 30
+      ApiDomain: tst-api-ee-toolbox.synapsis-analytics.com
+      FrontendDomain: tst-ee-toolbox.synapsis-analytics.com
+    prd:
+      Cpu: "1024"
+      Memory: "2048"
+      LogRetention: 90
+      ApiDomain: api-ee-toolbox.synapsis-analytics.com
+      FrontendDomain: ee-toolbox.synapsis-analytics.com
+    mgmt:
+      Cpu: "512"
+      Memory: "1024"
+      LogRetention: 14
+      ApiDomain: api-ee-toolbox.synapsis-analytics.com
+      FrontendDomain: ee-toolbox.synapsis-analytics.com
+
+# =============================================================================
+# Resources
+# =============================================================================
+Resources:
+
+  # ---------------------------------------------------------------------------
+  # Secrets Manager - API Keys
+  # ---------------------------------------------------------------------------
+  ApiKeysSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub 'ee-toolbox-${Environment}-api-keys'
+      Description: EE Toolbox API keys (Anthropic, OpenAI)
+      SecretString: !Sub |
+        {
+          "ANTHROPIC_API_KEY": "${AnthropicApiKey}",
+          "OPENAI_API_KEY": "${OpenAIApiKey}"
+        }
+      Tags:
+        - Key: Project
+          Value: ee-toolbox
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Team
+          Value: enabling-environments
+        - Key: CostCenter
+          Value: CGIAR-EE
+        - Key: ManagedBy
+          Value: cloudformation
+        - Key: Service
+          Value: backend
+
+  # ---------------------------------------------------------------------------
+  # ECS Cluster
+  # ---------------------------------------------------------------------------
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub 'ee-toolbox-${Environment}-cluster'
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+      Tags:
+        - Key: Project
+          Value: ee-toolbox
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Team
+          Value: enabling-environments
+        - Key: CostCenter
+          Value: CGIAR-EE
+        - Key: ManagedBy
+          Value: cloudformation
+        - Key: Service
+          Value: backend
+
+  # ---------------------------------------------------------------------------
+  # CloudWatch Log Group
+  # ---------------------------------------------------------------------------
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/ecs/ee-toolbox-${Environment}-backend'
+      RetentionInDays: !FindInMap [EnvironmentConfig, !Ref Environment, LogRetention]
+      Tags:
+        - Key: Project
+          Value: ee-toolbox
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Team
+          Value: enabling-environments
+        - Key: CostCenter
+          Value: CGIAR-EE
+        - Key: ManagedBy
+          Value: cloudformation
+        - Key: Service
+          Value: backend
+
+  # ---------------------------------------------------------------------------
+  # IAM - Task Execution Role
+  # ---------------------------------------------------------------------------
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'ee-toolbox-${Environment}-task-execution-role'
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: ee-toolbox-secrets-access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource:
+                  - !Ref DBSecretArn
+                  - !Ref ApiKeysSecret
+        - PolicyName: ee-toolbox-ecr-logs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !GetAtt LogGroup.Arn
+      Tags:
+        - Key: Project
+          Value: ee-toolbox
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Team
+          Value: enabling-environments
+        - Key: CostCenter
+          Value: CGIAR-EE
+        - Key: ManagedBy
+          Value: cloudformation
+        - Key: Service
+          Value: backend
+
+  # ---------------------------------------------------------------------------
+  # IAM - Task Role (for application-level AWS API calls)
+  # ---------------------------------------------------------------------------
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'ee-toolbox-${Environment}-task-role'
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Tags:
+        - Key: Project
+          Value: ee-toolbox
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Team
+          Value: enabling-environments
+        - Key: CostCenter
+          Value: CGIAR-EE
+        - Key: ManagedBy
+          Value: cloudformation
+        - Key: Service
+          Value: backend
+
+  # ---------------------------------------------------------------------------
+  # Security Group - ALB
+  # ---------------------------------------------------------------------------
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub 'ee-toolbox-${Environment}-alb-sg'
+      GroupDescription: Security group for EE Toolbox ALB
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS from anywhere
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP from anywhere (will redirect to HTTPS)
+      Tags:
+        - Key: Name
+          Value: !Sub 'ee-toolbox-${Environment}-alb-sg'
+        - Key: Project
+          Value: ee-toolbox
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Team
+          Value: enabling-environments
+        - Key: CostCenter
+          Value: CGIAR-EE
+        - Key: ManagedBy
+          Value: cloudformation
+        - Key: Service
+          Value: backend
+
+  # ---------------------------------------------------------------------------
+  # Security Group - ECS Tasks
+  # ---------------------------------------------------------------------------
+  ECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub 'ee-toolbox-${Environment}-ecs-sg'
+      GroupDescription: Security group for EE Toolbox ECS tasks
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8099
+          ToPort: 8099
+          SourceSecurityGroupId: !GetAtt ALBSecurityGroup.GroupId
+          Description: Traffic from ALB only
+      Tags:
+        - Key: Name
+          Value: !Sub 'ee-toolbox-${Environment}-ecs-sg'
+        - Key: Project
+          Value: ee-toolbox
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Team
+          Value: enabling-environments
+        - Key: CostCenter
+          Value: CGIAR-EE
+        - Key: ManagedBy
+          Value: cloudformation
+        - Key: Service
+          Value: backend
+
+  # ---------------------------------------------------------------------------
+  # Security Group Ingress - Allow ECS -> RDS on port 5432
+  # (The RDS SG is created in the database stack; we add a rule here)
+  # ---------------------------------------------------------------------------
+  RDSIngressFromECS:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref RDSSecurityGroupId
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      SourceSecurityGroupId: !GetAtt ECSSecurityGroup.GroupId
+      Description: Allow PostgreSQL access from ECS tasks
+
+  # ---------------------------------------------------------------------------
+  # Application Load Balancer
+  # ---------------------------------------------------------------------------
+  ALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub 'ee-toolbox-${Environment}-alb'
+      Scheme: internet-facing
+      Type: application
+      Subnets: !Ref SubnetIds
+      SecurityGroups:
+        - !GetAtt ALBSecurityGroup.GroupId
+      Tags:
+        - Key: Project
+          Value: ee-toolbox
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Team
+          Value: enabling-environments
+        - Key: CostCenter
+          Value: CGIAR-EE
+        - Key: ManagedBy
+          Value: cloudformation
+        - Key: Service
+          Value: backend
+
+  # ---------------------------------------------------------------------------
+  # Target Group
+  # ---------------------------------------------------------------------------
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub 'ee-toolbox-${Environment}-tg'
+      Port: 8099
+      Protocol: HTTP
+      TargetType: ip
+      VpcId: !Ref VpcId
+      HealthCheckPath: /health
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 5
+      Matcher:
+        HttpCode: "200"
+      Tags:
+        - Key: Project
+          Value: ee-toolbox
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Team
+          Value: enabling-environments
+        - Key: CostCenter
+          Value: CGIAR-EE
+        - Key: ManagedBy
+          Value: cloudformation
+        - Key: Service
+          Value: backend
+
+  # ---------------------------------------------------------------------------
+  # HTTPS Listener (443)
+  # ---------------------------------------------------------------------------
+  HTTPSListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ALB
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref CertificateArn
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+  # ---------------------------------------------------------------------------
+  # HTTP Listener (80) - redirect to HTTPS
+  # ---------------------------------------------------------------------------
+  HTTPListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ALB
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: redirect
+          RedirectConfig:
+            Protocol: HTTPS
+            Port: "443"
+            StatusCode: HTTP_301
+
+  # ---------------------------------------------------------------------------
+  # ECS Task Definition
+  # ---------------------------------------------------------------------------
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub 'ee-toolbox-${Environment}-backend'
+      RequiresCompatibilities:
+        - FARGATE
+      NetworkMode: awsvpc
+      Cpu: !FindInMap [EnvironmentConfig, !Ref Environment, Cpu]
+      Memory: !FindInMap [EnvironmentConfig, !Ref Environment, Memory]
+      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      ContainerDefinitions:
+        - Name: ee-toolbox-backend
+          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/ee-toolbox-${Environment}-backend:${ImageTag}"
+          Essential: true
+          PortMappings:
+            - ContainerPort: 8099
+              Protocol: tcp
+          Environment:
+            - Name: DATABASE_URL
+              Value: !Sub "postgresql+asyncpg://{{resolve:secretsmanager:ee-toolbox-${Environment}-db-credentials:SecretString:username}}:{{resolve:secretsmanager:ee-toolbox-${Environment}-db-credentials:SecretString:password}}@${DBEndpoint}:5432/ee_toolbox"
+            - Name: DATABASE_URL_SYNC
+              Value: !Sub "postgresql://{{resolve:secretsmanager:ee-toolbox-${Environment}-db-credentials:SecretString:username}}:{{resolve:secretsmanager:ee-toolbox-${Environment}-db-credentials:SecretString:password}}@${DBEndpoint}:5432/ee_toolbox"
+            - Name: ADMIN_PASSWORD
+              Value: !Ref AdminPassword
+            - Name: CORS_ORIGINS
+              Value: !Sub
+                - 'https://${FrontendDomain}'
+                - FrontendDomain: !FindInMap [EnvironmentConfig, !Ref Environment, FrontendDomain]
+            - Name: DEFAULT_MODEL
+              Value: claude-sonnet-4-20250514
+            - Name: ANTHROPIC_API_KEY
+              Value: !Ref AnthropicApiKey
+            - Name: OPENAI_API_KEY
+              Value: !Ref OpenAIApiKey
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref "AWS::Region"
+              awslogs-stream-prefix: ecs
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8099/health')\" || exit 1"
+            Interval: 30
+            Timeout: 10
+            Retries: 3
+            StartPeriod: 60
+      Tags:
+        - Key: Project
+          Value: ee-toolbox
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Team
+          Value: enabling-environments
+        - Key: CostCenter
+          Value: CGIAR-EE
+        - Key: ManagedBy
+          Value: cloudformation
+        - Key: Service
+          Value: backend
+
+  # ---------------------------------------------------------------------------
+  # ECS Service
+  # ---------------------------------------------------------------------------
+  ECSService:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - HTTPSListener
+      - HTTPListener
+    Properties:
+      ServiceName: !Sub 'ee-toolbox-${Environment}-service'
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref TaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets: !Ref SubnetIds
+          SecurityGroups:
+            - !GetAtt ECSSecurityGroup.GroupId
+          AssignPublicIp: ENABLED
+      LoadBalancers:
+        - TargetGroupArn: !Ref TargetGroup
+          ContainerName: ee-toolbox-backend
+          ContainerPort: 8099
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      HealthCheckGracePeriodSeconds: 120
+      Tags:
+        - Key: Project
+          Value: ee-toolbox
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Team
+          Value: enabling-environments
+        - Key: CostCenter
+          Value: CGIAR-EE
+        - Key: ManagedBy
+          Value: cloudformation
+        - Key: Service
+          Value: backend
+
+# =============================================================================
+# Outputs
+# =============================================================================
+Outputs:
+  ALBDnsName:
+    Description: ALB DNS name
+    Value: !GetAtt ALB.DNSName
+    Export:
+      Name: !Sub 'ee-toolbox-${Environment}-ALBDnsName'
+
+  ALBCanonicalHostedZoneID:
+    Description: ALB canonical hosted zone ID (for Route53 alias records)
+    Value: !GetAtt ALB.CanonicalHostedZoneID
+    Export:
+      Name: !Sub 'ee-toolbox-${Environment}-ALBCanonicalHostedZoneID'
+
+  APIUrl:
+    Description: Backend API URL
+    Value: !Sub
+      - 'https://${ApiDomain}'
+      - ApiDomain: !FindInMap [EnvironmentConfig, !Ref Environment, ApiDomain]
+    Export:
+      Name: !Sub 'ee-toolbox-${Environment}-APIUrl'
+
+  ECRRepositoryUri:
+    Description: ECR repository URI
+    Value: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/ee-toolbox-${Environment}-backend"
+    Export:
+      Name: !Sub 'ee-toolbox-${Environment}-ECRRepositoryUri'
+
+  ECSClusterName:
+    Description: ECS cluster name
+    Value: !Ref ECSCluster
+    Export:
+      Name: !Sub 'ee-toolbox-${Environment}-ECSClusterName'
+
+  ECSServiceName:
+    Description: ECS service name
+    Value: !GetAtt ECSService.Name
+    Export:
+      Name: !Sub 'ee-toolbox-${Environment}-ECSServiceName'

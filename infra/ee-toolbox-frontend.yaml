@@ -1,0 +1,147 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  EE Toolbox - Frontend stack.
+  Creates an AWS Amplify app with custom domain for the React SPA.
+
+# =============================================================================
+# Parameters
+# =============================================================================
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [mgmt, dev, tst, prd]
+    Default: mgmt
+    Description: Deployment environment
+
+  APIUrl:
+    Type: String
+    Description: Backend API URL (e.g. https://api-ee-toolbox.synapsis-analytics.com)
+
+# =============================================================================
+# Mappings
+# =============================================================================
+Mappings:
+  EnvironmentConfig:
+    dev:
+      SubdomainPrefix: dev-ee-toolbox
+      FrontendDomain: dev-ee-toolbox.synapsis-analytics.com
+    tst:
+      SubdomainPrefix: tst-ee-toolbox
+      FrontendDomain: tst-ee-toolbox.synapsis-analytics.com
+    prd:
+      SubdomainPrefix: ee-toolbox
+      FrontendDomain: ee-toolbox.synapsis-analytics.com
+    mgmt:
+      SubdomainPrefix: ee-toolbox
+      FrontendDomain: ee-toolbox.synapsis-analytics.com
+
+# =============================================================================
+# Conditions
+# =============================================================================
+Conditions:
+  IsMgmt: !Equals [!Ref Environment, mgmt]
+
+# =============================================================================
+# Resources
+# =============================================================================
+Resources:
+
+  # ---------------------------------------------------------------------------
+  # Amplify App
+  # ---------------------------------------------------------------------------
+  AmplifyApp:
+    Type: AWS::Amplify::App
+    Properties:
+      Name: !Sub 'ee-toolbox-${Environment}'
+      Platform: WEB
+      CustomRules:
+        - Source: "/<*>"
+          Target: /index.html
+          Status: "404-200"
+      EnvironmentVariables:
+        - Name: VITE_API_BASE_URL
+          Value: !Ref APIUrl
+      BuildSpec: |
+        version: 1
+        frontend:
+          phases:
+            build:
+              commands: []
+          artifacts:
+            baseDirectory: /
+            files:
+              - '**/*'
+      Tags:
+        - Key: Project
+          Value: ee-toolbox
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Team
+          Value: enabling-environments
+        - Key: CostCenter
+          Value: CGIAR-EE
+        - Key: ManagedBy
+          Value: cloudformation
+        - Key: Service
+          Value: frontend
+
+  # ---------------------------------------------------------------------------
+  # Amplify Branch - main
+  # ---------------------------------------------------------------------------
+  AmplifyBranch:
+    Type: AWS::Amplify::Branch
+    Properties:
+      AppId: !GetAtt AmplifyApp.AppId
+      BranchName: main
+      EnableAutoBuild: false
+      Tags:
+        - Key: Project
+          Value: ee-toolbox
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Team
+          Value: enabling-environments
+        - Key: CostCenter
+          Value: CGIAR-EE
+        - Key: ManagedBy
+          Value: cloudformation
+        - Key: Service
+          Value: frontend
+
+  # ---------------------------------------------------------------------------
+  # Amplify Domain - custom subdomain
+  # ---------------------------------------------------------------------------
+  AmplifyDomain:
+    Type: AWS::Amplify::Domain
+    Condition: IsMgmt
+    DependsOn: AmplifyBranch
+    Properties:
+      AppId: !GetAtt AmplifyApp.AppId
+      DomainName: synapsis-analytics.com
+      SubDomainSettings:
+        - BranchName: main
+          Prefix: !FindInMap [EnvironmentConfig, !Ref Environment, SubdomainPrefix]
+
+# =============================================================================
+# Outputs
+# =============================================================================
+Outputs:
+  AmplifyAppId:
+    Description: Amplify application ID
+    Value: !GetAtt AmplifyApp.AppId
+    Export:
+      Name: !Sub 'ee-toolbox-${Environment}-AmplifyAppId'
+
+  AmplifyDefaultDomain:
+    Description: Amplify default domain
+    Value: !GetAtt AmplifyApp.DefaultDomain
+    Export:
+      Name: !Sub 'ee-toolbox-${Environment}-AmplifyDefaultDomain'
+
+  FrontendUrl:
+    Description: Frontend URL (custom domain)
+    Value: !Sub
+      - 'https://${FrontendDomain}'
+      - FrontendDomain: !FindInMap [EnvironmentConfig, !Ref Environment, FrontendDomain]
+    Export:
+      Name: !Sub 'ee-toolbox-${Environment}-FrontendUrl'

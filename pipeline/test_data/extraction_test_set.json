@@ -1,0 +1,740 @@
+[
+  {
+    "id": "scaling-scan",
+    "input": {
+      "title": "Scaling Scan",
+      "authors": "Larry Cooley, Johannes Linn, CIMMYT Scaling Team",
+      "date": "2019",
+      "abstract": "Systematically assess readiness and potential of innovations to scale within agri-food systems.",
+      "full_text": "The Scaling Scan is a practical framework developed to help teams and organizations assess the readiness and potential of agricultural innovations to scale within complex agri-food systems. It provides a structured methodology for evaluating both the innovation itself and the enabling environment in which it operates. Drawing on decades of research and field experience across sub-Saharan Africa, South Asia, and Southeast Asia, the Scaling Scan framework enables practitioners to identify critical bottlenecks, assess institutional capacity, and develop targeted strategies for scaling agricultural innovations effectively. The framework consists of ten scaling ingredients, each of which represents a key factor determining whether an innovation can grow from pilot to significant scale. By systematically scoring each ingredient, teams can identify priority areas for investment and intervention. The Scaling Scan has been applied in over 40 countries across multiple CGIAR centers, and has been used to guide scaling strategies for innovations ranging from improved seed varieties to digital advisory services."
+    },
+    "expected": {
+      "pillars": [
+        "Policy and Regulatory"
+      ],
+      "domains": [
+        "Scaling Innovation"
+      ],
+      "type": "Framework",
+      "stage": "Established and field-tested",
+      "target_users": [
+        "Project and program managers"
+      ],
+      "geography": [
+        "Africa",
+        "Asia",
+        "Latin America"
+      ]
+    }
+  },
+  {
+    "id": "scaling-readiness",
+    "input": {
+      "title": "Scaling Readiness Assessment",
+      "authors": "Marc Schut, Cees Leeuwis, Wageningen University & CGIAR",
+      "date": "2020",
+      "abstract": "Determine the readiness level of innovations and their enabling environment for scaling investments.",
+      "full_text": "The Scaling Readiness Assessment provides a rapid yet rigorous methodology for determining whether an agricultural innovation and its surrounding enabling environment are ready for scaling investments. Scaling Readiness synthesizes evidence across five readiness dimensions: technical maturity, demand validation, business model viability, enabling environment fitness, and organizational capacity. The assessment process generates a Readiness Score and a detailed readiness profile that can be used to make go/no-go scaling decisions. Scaling Readiness has been applied to over 150 agricultural innovations across the CGIAR portfolio."
+    },
+    "expected": {
+      "pillars": [
+        "Policy and Regulatory",
+        "Monitoring, Evaluation and Learning"
+      ],
+      "domains": [
+        "Scaling Innovation"
+      ],
+      "type": "Method",
+      "stage": "Established and field-tested",
+      "target_users": [
+        "Researcher",
+        "Project and program managers",
+        "Funders and Donors"
+      ],
+      "geography": [
+        "Africa",
+        "Asia",
+        "Latin America"
+      ]
+    }
+  },
+  {
+    "id": "melia-framework",
+    "input": {
+      "title": "MELIA Framework",
+      "authors": "CGIAR Advisory Services, ISDC",
+      "date": "2018",
+      "abstract": "Monitoring, Evaluation, Learning, and Impact Assessment framework for agricultural research-for-development programs.",
+      "full_text": "The MELIA (Monitoring, Evaluation, Learning, and Impact Assessment) Framework provides a comprehensive system for tracking the performance and impact of agricultural research-for-development programs. MELIA integrates four interconnected functions: real-time monitoring of outputs and outcomes, periodic evaluations of program effectiveness, systematic learning processes for adaptive management, and rigorous impact assessment. The framework emphasizes theory-of-change-based planning, contribution analysis, and participatory evaluation methods. Originally developed for CGIAR research programs, MELIA has been adopted by national agricultural research systems and development organizations in over 25 countries."
+    },
+    "expected": {
+      "pillars": [
+        "Monitoring, Evaluation and Learning"
+      ],
+      "domains": [
+        "Scaling Innovation",
+        "Agri-food Systems"
+      ],
+      "type": "Framework",
+      "stage": "Established and field-tested",
+      "target_users": [
+        "Researcher",
+        "Monitoring and Evaluation specialists",
+        "Project and program managers"
+      ],
+      "geography": [
+        "Africa",
+        "Asia",
+        "Latin America"
+      ]
+    }
+  },
+  {
+    "id": "policy-landscape-mapping",
+    "input": {
+      "title": "Policy Landscape Mapping Tool",
+      "authors": "IFAD Policy Division, CGIAR Research Program on Policies, Institutions and Markets",
+      "date": "2017",
+      "abstract": "Visualize and analyze the policy ecosystem affecting agricultural innovation adoption and scaling.",
+      "full_text": "Policy Landscape Mapping is a systematic method for identifying, analyzing, and visualizing the full range of policies, regulations, and institutional arrangements that shape the enabling environment for agricultural innovation. The method combines desk-based policy analysis with stakeholder consultations to produce comprehensive maps of the policy ecosystem. By visualizing policy interactions and identifying gaps, Policy Landscape Mapping helps innovators and policymakers understand how different policy domains interact. The method has been used extensively across East and West Africa to support policy reform processes."
+    },
+    "expected": {
+      "pillars": [
+        "Policy and Regulatory"
+      ],
+      "domains": [
+        "Agri-food Systems"
+      ],
+      "type": "Method",
+      "stage": "Established and field-tested",
+      "target_users": [
+        "Policymaker",
+        "Government agencies",
+        "Project and program managers"
+      ],
+      "geography": [
+        "Africa"
+      ]
+    }
+  },
+  {
+    "id": "gender-transformative-framework",
+    "input": {
+      "title": "Gender Transformative Approach Framework",
+      "authors": "Rhiannon Pyburn, Anouka van Eerdewijk, KIT Royal Tropical Institute",
+      "date": "2019",
+      "abstract": "Design and implement interventions that address root causes of gender inequality in agricultural systems.",
+      "full_text": "The Gender Transformative Approach (GTA) Framework provides a structured methodology for designing and implementing agricultural interventions that move beyond gender-sensitivity to actively address the structural causes of gender inequality within food systems. The framework integrates gender analysis across the full project cycle. Field applications across sub-Saharan Africa and South Asia have demonstrated that gender transformative approaches can increase women's participation in agricultural value chains by up to 40%."
+    },
+    "expected": {
+      "pillars": [
+        "Gender Equality and Social Inclusion",
+        "Policy and Regulatory"
+      ],
+      "domains": [
+        "Agri-food Systems"
+      ],
+      "type": "Framework",
+      "stage": "Established and field-tested",
+      "target_users": [
+        "Community leaders"
+      ],
+      "geography": [
+        "Africa",
+        "Asia"
+      ]
+    }
+  },
+  {
+    "id": "digital-agriculture-assessment",
+    "input": {
+      "title": "Digital Agriculture Assessment Tool",
+      "authors": "World Bank Digital Development, CTA",
+      "date": "2021",
+      "abstract": "Evaluate digital infrastructure readiness and identify opportunities for digital agricultural services.",
+      "full_text": "The Digital Agriculture Assessment Tool (DAAT) provides a comprehensive framework for evaluating the digital infrastructure landscape and identifying high-value opportunities for digital agricultural services. The tool generates a Digital Agriculture Readiness Index that can be used to prioritize investments. Piloted across 15 countries in Africa and Asia."
+    },
+    "expected": {
+      "pillars": [
+        "Digital and Financial Services",
+        "Market Systems"
+      ],
+      "domains": [
+        "Scaling Innovation"
+      ],
+      "type": "Tool",
+      "stage": "Prototype",
+      "target_users": [
+        "Researcher",
+        "Monitoring and Evaluation specialists",
+        "Private sector entities"
+      ],
+      "geography": [
+        "Africa",
+        "Asia"
+      ]
+    }
+  },
+  {
+    "id": "market-systems-analysis",
+    "input": {
+      "title": "Market Systems Analysis",
+      "authors": "Springfield Centre, Alliance of Bioversity International and CIAT",
+      "date": "2016",
+      "abstract": "Map and understand market dynamics that influence agricultural innovation uptake and sustainability.",
+      "full_text": "Market Systems Analysis (MSA) is a methodology for understanding the complex systems of actors, rules, and relationships that shape how agricultural markets function. The methodology builds on the Making Markets Work for the Poor (M4P) approach. MSA has been applied extensively across East Africa and South Asia to design market systems development programs."
+    },
+    "expected": {
+      "pillars": [
+        "Market Systems"
+      ],
+      "domains": [
+        "Agri-food Systems"
+      ],
+      "type": "Method",
+      "stage": "Established and field-tested",
+      "target_users": [
+        "Agribusiness",
+        "Project and program managers"
+      ],
+      "geography": [
+        "Africa",
+        "Asia"
+      ]
+    }
+  },
+  {
+    "id": "institutional-capacity",
+    "input": {
+      "title": "Institutional Capacity Assessment",
+      "authors": "CGIAR System Organization, ISDC",
+      "date": "2020",
+      "abstract": "Evaluate organizational readiness and capacity gaps for scaling agricultural innovations.",
+      "full_text": "The Institutional Capacity Assessment (ICA) Framework provides a structured approach to evaluating the organizational systems, processes, and capabilities needed to effectively scale agricultural innovations. The ICA Framework examines seven core domains of organizational capacity. The framework has been validated through application in over 60 agricultural organizations across Africa, Asia, and Latin America."
+    },
+    "expected": {
+      "pillars": [
+        "Policy and Regulatory",
+        "Monitoring, Evaluation and Learning"
+      ],
+      "domains": [
+        "Scaling Innovation"
+      ],
+      "type": "Framework",
+      "stage": "Prototype",
+      "target_users": [
+        "Researcher",
+        "Monitoring and Evaluation specialists",
+        "Project and program managers"
+      ],
+      "geography": [
+        "Africa",
+        "Asia"
+      ]
+    }
+  },
+  {
+    "id": "climate-smart-policy",
+    "input": {
+      "title": "Climate-Smart Policy Toolkit",
+      "authors": "FAO Climate-Smart Agriculture Unit, CCAFS",
+      "date": "2018",
+      "abstract": "Develop and evaluate policies that support climate-resilient agricultural practices.",
+      "full_text": "The Climate-Smart Policy Toolkit provides governments and development organizations with practical resources for designing, evaluating, and implementing policies that support the adoption of climate-smart agricultural practices. The toolkit has been developed through collaboration across multiple CGIAR centers and has been applied in 20 countries."
+    },
+    "expected": {
+      "pillars": [
+        "Policy and Regulatory"
+      ],
+      "domains": [
+        "Climate Resilience"
+      ],
+      "type": "Tool",
+      "stage": "Established and field-tested",
+      "target_users": [
+        "Policymaker",
+        "Government agencies",
+        "Monitoring and Evaluation specialists"
+      ],
+      "geography": [
+        "Africa",
+        "Asia",
+        "Latin America"
+      ]
+    }
+  },
+  {
+    "id": "innovation-readiness",
+    "input": {
+      "title": "Innovation Scaling Readiness Assessment",
+      "authors": "CGIAR Research Program on Policies, Institutions and Markets",
+      "date": "2021",
+      "abstract": "Determine the readiness of innovations and enabling environments for scaling.",
+      "full_text": "The Innovation Scaling Readiness Assessment (ISRA) provides a rapid yet rigorous methodology for determining whether an agricultural innovation and its surrounding enabling environment are ready for scaling investments. ISRA synthesizes evidence across five readiness dimensions. ISRA has been applied to over 150 agricultural innovations across the CGIAR portfolio."
+    },
+    "expected": {
+      "pillars": [
+        "Policy and Regulatory",
+        "Monitoring, Evaluation and Learning"
+      ],
+      "domains": [
+        "Scaling Innovation"
+      ],
+      "type": "Method",
+      "stage": "Prototype",
+      "target_users": [
+        "Researcher",
+        "Project and program managers"
+      ],
+      "geography": [
+        "Africa",
+        "Asia",
+        "Latin America"
+      ]
+    }
+  },
+  {
+    "id": "nutrition-sensitive",
+    "input": {
+      "title": "Nutrition-Sensitive Agriculture Framework",
+      "authors": "IFAD, FAO Nutrition Division, A4NH",
+      "date": "2017",
+      "abstract": "Integrate nutrition objectives into agricultural programming and policy design.",
+      "full_text": "The Nutrition-Sensitive Agriculture Framework provides guidance for designing agricultural interventions that explicitly contribute to improved nutrition outcomes. The framework identifies six agricultural-nutrition pathways. Piloted across 12 countries in Africa and Asia."
+    },
+    "expected": {
+      "pillars": [
+        "Gender Equality and Social Inclusion",
+        "Market Systems"
+      ],
+      "domains": [
+        "Agri-food Systems"
+      ],
+      "type": "Framework",
+      "stage": "Established and field-tested",
+      "target_users": [
+        "Policymaker",
+        "Government agencies",
+        "Project and program managers"
+      ],
+      "geography": [
+        "Asia",
+        "Africa"
+      ]
+    }
+  },
+  {
+    "id": "participatory-rural-appraisal",
+    "input": {
+      "title": "Participatory Rural Appraisal Toolkit",
+      "authors": "Robert Chambers, CGIAR Research Program on Dryland Systems",
+      "date": "2015",
+      "abstract": "Engage communities in collaborative assessment and planning for agricultural development.",
+      "full_text": "The Participatory Rural Appraisal (PRA) Toolkit provides a comprehensive set of facilitation methods for engaging rural communities in collaborative assessment, analysis, and planning. PRA methods empower community members to share their knowledge. Used extensively across CGIAR programs."
+    },
+    "expected": {
+      "pillars": [
+        "Gender Equality and Social Inclusion",
+        "Policy and Regulatory"
+      ],
+      "domains": [
+        "Agri-food Systems"
+      ],
+      "type": "Method",
+      "stage": "Established and field-tested",
+      "target_users": [
+        "Researcher",
+        "Farmers and Agro-pastoralists",
+        "Community leaders"
+      ],
+      "geography": [
+        "Asia",
+        "Africa"
+      ]
+    }
+  },
+  {
+    "id": "ict4ag-assessment",
+    "input": {
+      "title": "ICT4Ag Assessment Framework",
+      "authors": "CTA, CABI, CGIAR Platform for Big Data in Agriculture",
+      "date": "2020",
+      "abstract": "Assess information and communication technology solutions for agricultural value chain improvement.",
+      "full_text": "The ICT4Ag Assessment Framework provides a structured approach to evaluating how information and communication technologies can improve agricultural value chain performance. The framework has been used to design and evaluate ICT4Ag programs in 18 countries."
+    },
+    "expected": {
+      "pillars": [
+        "Digital and Financial Services",
+        "Market Systems"
+      ],
+      "domains": [
+        "Scaling Innovation"
+      ],
+      "type": "Framework",
+      "stage": "Prototype",
+      "target_users": [
+        "Researcher",
+        "Agribusiness",
+        "Private sector entities"
+      ],
+      "geography": [
+        "Africa",
+        "Asia",
+        "Latin America"
+      ]
+    }
+  },
+  {
+    "id": "seed-system-toolkit",
+    "input": {
+      "title": "Seed System Development Toolkit",
+      "authors": "Alliance of Bioversity International and CIAT, CIMMYT Seed Systems",
+      "date": "2018",
+      "abstract": "Strengthen national seed systems through policy reform, quality assurance, and market development.",
+      "full_text": "The Seed System Development Toolkit provides comprehensive guidance for strengthening national seed systems. Developed through collaboration between CGIAR breeding programs and national seed authorities in 15 countries."
+    },
+    "expected": {
+      "pillars": [
+        "Policy and Regulatory",
+        "Market Systems"
+      ],
+      "domains": [
+        "Agri-food Systems",
+        "Scaling Innovation"
+      ],
+      "type": "Tool",
+      "stage": "Established and field-tested",
+      "target_users": [
+        "Policymaker",
+        "Government agencies",
+        "Agribusiness"
+      ],
+      "geography": [
+        "Africa"
+      ]
+    }
+  },
+  {
+    "id": "ag-finance-readiness",
+    "input": {
+      "title": "Agricultural Finance Readiness Tool",
+      "authors": "World Bank Agriculture Finance Unit, CGAP",
+      "date": "2022",
+      "abstract": "Assess enabling conditions for agricultural financial services including fintech and insurance.",
+      "full_text": "The Agricultural Finance Readiness Tool (AFRT) helps governments, financial institutions, and development partners assess the enabling conditions for agricultural financial services. The tool has been applied in 10 countries across Africa and Asia."
+    },
+    "expected": {
+      "pillars": [
+        "Monitoring, Evaluation and Learning",
+        "Digital and Financial Services"
+      ],
+      "domains": [
+        "Scaling Innovation",
+        "Agri-food Systems"
+      ],
+      "type": "Tool",
+      "stage": "Prototype",
+      "target_users": [
+        "Funders and Donors"
+      ],
+      "geography": [
+        "Africa",
+        "Asia"
+      ]
+    }
+  },
+  {
+    "id": "land-governance",
+    "input": {
+      "title": "Land Governance Assessment Framework",
+      "authors": "World Bank Land Unit, Klaus Deininger",
+      "date": "2016",
+      "abstract": "Assess and improve land governance systems critical for agricultural investment and food security.",
+      "full_text": "The Land Governance Assessment Framework (LGAF) provides a comprehensive diagnostic tool for assessing the quality of land governance. LGAF has been implemented in over 40 countries globally."
+    },
+    "expected": {
+      "pillars": [
+        "Policy and Regulatory",
+        "Gender Equality and Social Inclusion"
+      ],
+      "domains": [
+        "Agri-food Systems"
+      ],
+      "type": "Framework",
+      "stage": "Established and field-tested",
+      "target_users": [
+        "Policymaker",
+        "Government agencies",
+        "Researcher",
+        "Funders and Donors"
+      ],
+      "geography": [
+        "Africa",
+        "Asia",
+        "Latin America"
+      ]
+    }
+  },
+  {
+    "id": "watershed-management",
+    "input": {
+      "title": "Watershed Management Framework",
+      "authors": "IWMI, ICRISAT Watershed Program",
+      "date": "2017",
+      "abstract": "Plan and implement integrated watershed management for climate-resilient agricultural landscapes.",
+      "full_text": "The Watershed Management Framework provides guidance for planning, implementing, and monitoring integrated watershed management interventions. Applied across the Ethiopian highlands, Indian dryland systems, and Central American hillsides."
+    },
+    "expected": {
+      "pillars": [
+        "Policy and Regulatory"
+      ],
+      "domains": [
+        "Climate Resilience",
+        "Agri-food Systems"
+      ],
+      "type": "Framework",
+      "stage": "Established and field-tested",
+      "target_users": [],
+      "geography": [
+        "Africa",
+        "Asia",
+        "Latin America"
+      ]
+    }
+  },
+  {
+    "id": "value-chain-analysis",
+    "input": {
+      "title": "Value Chain Analysis Toolkit",
+      "authors": "FAO, Alliance of Bioversity International and CIAT",
+      "date": "2016",
+      "abstract": "Map agricultural value chains to identify constraints, opportunities, and intervention points.",
+      "full_text": "The Value Chain Analysis Toolkit provides a comprehensive methodology for mapping, analyzing, and upgrading agricultural value chains. Used extensively across CGIAR commodity programs."
+    },
+    "expected": {
+      "pillars": [
+        "Market Systems"
+      ],
+      "domains": [
+        "Agri-food Systems"
+      ],
+      "type": "Method",
+      "stage": "Established and field-tested",
+      "target_users": [
+        "Agribusiness"
+      ],
+      "geography": [
+        "Africa",
+        "Asia",
+        "Latin America"
+      ]
+    }
+  },
+  {
+    "id": "agroecology-scorecard",
+    "input": {
+      "title": "Agroecology Transition Scorecard",
+      "authors": "FAO Agroecology Unit, Alliance of Bioversity International and CIAT",
+      "date": "2022",
+      "abstract": "Measure progress toward agroecological farming practices at farm and landscape levels.",
+      "full_text": "The Agroecology Transition Scorecard provides a standardized methodology for measuring the extent to which farming systems are adopting agroecological principles. Developed in collaboration with FAO and validated across 20 countries."
+    },
+    "expected": {
+      "pillars": [
+        "Policy and Regulatory"
+      ],
+      "domains": [
+        "Climate Resilience",
+        "Agri-food Systems"
+      ],
+      "type": "Scorecard",
+      "stage": "Prototype",
+      "target_users": [],
+      "geography": [
+        "Asia",
+        "Africa",
+        "Latin America"
+      ]
+    }
+  },
+  {
+    "id": "climate-vulnerability",
+    "input": {
+      "title": "Climate Vulnerability Assessment Framework",
+      "authors": "CCAFS, CIAT Climate Change Team",
+      "date": "2018",
+      "abstract": "Assess agricultural system vulnerability to climate change and prioritize adaptation investments.",
+      "full_text": "The Climate Vulnerability Assessment Framework (CVAF) provides a structured methodology for assessing the vulnerability of agricultural systems to climate change. Developed by CCAFS and applied across 25 countries, the framework has informed national adaptation plans and guided over $500 million in climate adaptation investments for agriculture."
+    },
+    "expected": {
+      "pillars": [
+        "Policy and Regulatory",
+        "Monitoring, Evaluation and Learning"
+      ],
+      "domains": [
+        "Climate Resilience"
+      ],
+      "type": "Framework",
+      "stage": "Established and field-tested",
+      "target_users": [
+        "Researcher",
+        "Funders and Donors"
+      ],
+      "geography": [
+        "Africa",
+        "Asia",
+        "Latin America"
+      ]
+    }
+  },
+  {
+    "id": "irrigation-governance",
+    "input": {
+      "title": "Irrigation Governance Assessment",
+      "authors": "IWMI, FAO Land and Water Division",
+      "date": "2019",
+      "abstract": "Evaluate and improve governance systems for sustainable irrigation management.",
+      "full_text": "The Irrigation Governance Assessment provides a diagnostic framework for evaluating the governance arrangements that determine the sustainability, equity, and efficiency of irrigation systems. Developed by IWMI and applied in 12 countries across Africa and South Asia."
+    },
+    "expected": {
+      "pillars": [
+        "Policy and Regulatory"
+      ],
+      "domains": [
+        "Climate Resilience",
+        "Agri-food Systems"
+      ],
+      "type": "Framework",
+      "stage": "Established and field-tested",
+      "target_users": [
+        "Policymaker",
+        "Government agencies",
+        "Researcher",
+        "Monitoring and Evaluation specialists",
+        "Irrigation scheme managers"
+      ],
+      "geography": [
+        "Asia",
+        "Africa"
+      ]
+    }
+  },
+  {
+    "id": "farmer-field-school",
+    "input": {
+      "title": "Farmer Field School Implementation Guide",
+      "authors": "FAO Plant Production and Protection Division",
+      "date": "2016",
+      "abstract": "Design and implement farmer field schools for participatory agricultural learning and innovation.",
+      "full_text": "The Farmer Field School (FFS) Implementation Guide provides comprehensive guidance for designing, implementing, and scaling farmer-led learning programs. With over 30 years of experience across 90 countries."
+    },
+    "expected": {
+      "pillars": [
+        "Gender Equality and Social Inclusion",
+        "Policy and Regulatory"
+      ],
+      "domains": [
+        "Scaling Innovation",
+        "Agri-food Systems"
+      ],
+      "type": "Method",
+      "stage": "Established and field-tested",
+      "target_users": [
+        "Development Practitioner",
+        "Farmers and Agro-pastoralists",
+        "Project and program managers",
+        "Community leaders"
+      ],
+      "geography": [
+        "Africa",
+        "Asia"
+      ]
+    }
+  },
+  {
+    "id": "gender-responsive-breeding",
+    "input": {
+      "title": "Gender-Responsive Plant Breeding Method",
+      "authors": "CGIAR Gender and Breeding Initiative, Hale Tufan, Cornell University",
+      "date": "2022",
+      "abstract": "Integrate gender analysis into plant breeding processes to develop varieties that meet diverse user needs.",
+      "full_text": "The Gender-Responsive Plant Breeding Method provides a structured approach for integrating gender analysis into all stages of the plant breeding process. Piloted across CGIAR breeding programs for rice, beans, cassava, and wheat."
+    },
+    "expected": {
+      "pillars": [
+        "Gender Equality and Social Inclusion"
+      ],
+      "domains": [
+        "Agri-food Systems",
+        "Scaling Innovation"
+      ],
+      "type": "Method",
+      "stage": "Prototype",
+      "target_users": [
+        "Researcher",
+        "Community leaders"
+      ],
+      "geography": [
+        "Africa",
+        "Asia"
+      ]
+    }
+  },
+  {
+    "id": "cbnrm-toolkit",
+    "input": {
+      "title": "Community-Based Natural Resource Management Toolkit",
+      "authors": "ILRI, ICRISAT, WorldFish",
+      "date": "2018",
+      "abstract": "Empower communities to sustainably manage natural resources for agricultural livelihoods.",
+      "full_text": "The Community-Based Natural Resource Management (CBNRM) Toolkit provides practical guidance for establishing and strengthening community governance systems for natural resources. Applied across dryland and pastoral systems in East Africa and South Asia."
+    },
+    "expected": {
+      "pillars": [
+        "Policy and Regulatory",
+        "Gender Equality and Social Inclusion"
+      ],
+      "domains": [
+        "Climate Resilience",
+        "Agri-food Systems"
+      ],
+      "type": "Tool",
+      "stage": "Established and field-tested",
+      "target_users": [
+        "Development Practitioner"
+      ],
+      "geography": [
+        "Africa",
+        "Asia"
+      ]
+    }
+  },
+  {
+    "id": "postharvest-loss",
+    "input": {
+      "title": "Post-Harvest Loss Reduction Guide",
+      "authors": "FAO Save Food Initiative, CIMMYT Post-Harvest Program",
+      "date": "2019",
+      "abstract": "Comprehensive guidance for reducing food losses in agricultural value chains.",
+      "full_text": "The Post-Harvest Loss Reduction Guide provides comprehensive technical and institutional guidance for reducing food losses across agricultural value chains. The guide has been used in 18 countries and contributed to average loss reductions of 30%."
+    },
+    "expected": {
+      "pillars": [
+        "Market Systems",
+        "Digital and Financial Services"
+      ],
+      "domains": [
+        "Agri-food Systems"
+      ],
+      "type": "Guide",
+      "stage": "Established and field-tested",
+      "target_users": [
+        "Agribusiness"
+      ],
+      "geography": [
+        "Africa",
+        "Asia"
+      ]
+    }
+  }
+]

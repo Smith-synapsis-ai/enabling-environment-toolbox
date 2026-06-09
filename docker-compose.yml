@@ -1,0 +1,20 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: ee_toolbox_db
+    environment:
+      POSTGRES_DB: ee_toolbox
+      POSTGRES_USER: ee_user
+      POSTGRES_PASSWORD: ee_dev_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - ee_toolbox_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ee_user -d ee_toolbox"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  ee_toolbox_pgdata:

@@ -1,0 +1,589 @@
+name: Deploy EE Toolbox
+
+# ==============================================================================
+# Multi-environment deployment workflow
+#
+# Trigger mapping:
+#   push to main        -> prd  (account 207258148366)
+#   push to develop     -> dev  (account 972793825893)
+#   push to release/*   -> tst  (account 053142643230)
+#   workflow_dispatch    -> any  (user selects environment)
+#
+# Each environment uses a GitHub Environment with its own AWS_DEPLOY_ROLE_ARN
+# secret pointing to the OIDC deploy role in the target AWS account.
+#
+# PRD environment should have protection rules (manual approval) configured
+# in the GitHub repo settings under Settings > Environments > prd.
+# ==============================================================================
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'release/*'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - mgmt
+          - dev
+          - tst
+          - prd
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: eu-central-1
+
+jobs:
+  # ============================================================================
+  # Job 1: Determine target environment from trigger
+  # ============================================================================
+  determine-environment:
+    name: Determine Target Environment
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+      api_domain: ${{ steps.set-env.outputs.api_domain }}
+      frontend_domain: ${{ steps.set-env.outputs.frontend_domain }}
+      frontend_prefix: ${{ steps.set-env.outputs.frontend_prefix }}
+    steps:
+      - name: Set environment from trigger
+        id: set-env
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            ENV="${{ github.event.inputs.environment }}"
+          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            ENV="prd"
+          elif [ "${{ github.ref }}" = "refs/heads/develop" ]; then
+            ENV="dev"
+          elif [[ "${{ github.ref }}" == refs/heads/release/* ]]; then
+            ENV="tst"
+          else
+            echo "::error::No deployment target for ref ${{ github.ref }}"
+            exit 1
+          fi
+
+          echo "environment=$ENV" >> $GITHUB_OUTPUT
+          echo "Deploying to environment: $ENV"
+
+          # Set domain mappings per environment
+          case $ENV in
+            dev)
+              echo "api_domain=dev-api-ee-toolbox.synapsis-analytics.com" >> $GITHUB_OUTPUT
+              echo "frontend_domain=dev-ee-toolbox.synapsis-analytics.com" >> $GITHUB_OUTPUT
+              echo "frontend_prefix=dev-ee-toolbox" >> $GITHUB_OUTPUT
+              ;;
+            tst)
+              echo "api_domain=tst-api-ee-toolbox.synapsis-analytics.com" >> $GITHUB_OUTPUT
+              echo "frontend_domain=tst-ee-toolbox.synapsis-analytics.com" >> $GITHUB_OUTPUT
+              echo "frontend_prefix=tst-ee-toolbox" >> $GITHUB_OUTPUT
+              ;;
+            prd|mgmt)
+              echo "api_domain=api-ee-toolbox.synapsis-analytics.com" >> $GITHUB_OUTPUT
+              echo "frontend_domain=ee-toolbox.synapsis-analytics.com" >> $GITHUB_OUTPUT
+              echo "frontend_prefix=ee-toolbox" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+  # ============================================================================
+  # Job 2: Deploy to the target environment
+  # ============================================================================
+  deploy:
+    name: Deploy to ${{ needs.determine-environment.outputs.environment }}
+    needs: determine-environment
+    runs-on: ubuntu-latest
+    environment: ${{ needs.determine-environment.outputs.environment }}
+    concurrency:
+      group: deploy-${{ needs.determine-environment.outputs.environment }}
+      cancel-in-progress: false
+    env:
+      ENV: ${{ needs.determine-environment.outputs.environment }}
+      API_DOMAIN: ${{ needs.determine-environment.outputs.api_domain }}
+      FRONTEND_DOMAIN: ${{ needs.determine-environment.outputs.frontend_domain }}
+      FRONTEND_PREFIX: ${{ needs.determine-environment.outputs.frontend_prefix }}
+
+    steps:
+      # ----------------------------------------------------------------
+      # 1. Checkout
+      # ----------------------------------------------------------------
+      - uses: actions/checkout@v4
+
+      # ----------------------------------------------------------------
+      # 2. OIDC Auth (environment-specific role)
+      # ----------------------------------------------------------------
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: eu-central-1
+
+      # ----------------------------------------------------------------
+      # 3. Verify AWS account
+      # ----------------------------------------------------------------
+      - name: Verify AWS account
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "Deploying to account: $ACCOUNT_ID (environment: $ENV)"
+
+      # ----------------------------------------------------------------
+      # 4. Look up VPC/subnets/cert (dynamic, no hardcoded values)
+      #    Must run before any CloudFormation deploys since templates
+      #    require VpcId, SubnetIds, and CertificateArn with no defaults.
+      # ----------------------------------------------------------------
+      - name: Look up VPC and networking
+        id: vpc
+        run: |
+          # Get the default VPC
+          VPC_ID=$(aws ec2 describe-vpcs --filters "Name=isDefault,Values=true" \
+            --query "Vpcs[0].VpcId" --output text)
+
+          # Get all subnets in the default VPC
+          SUBNETS=$(aws ec2 describe-subnets \
+            --filters "Name=vpc-id,Values=$VPC_ID" \
+            --query "Subnets[*].SubnetId" --output text | tr '\t' ',')
+
+          # Get the wildcard cert for *.synapsis-analytics.com
+          CERT_ARN=$(aws acm list-certificates \
+            --query "CertificateSummaryList[?DomainName=='*.synapsis-analytics.com'].CertificateArn | [0]" \
+            --output text)
+
+          echo "vpc_id=$VPC_ID" >> $GITHUB_OUTPUT
+          echo "subnets=$SUBNETS" >> $GITHUB_OUTPUT
+          echo "cert_arn=$CERT_ARN" >> $GITHUB_OUTPUT
+
+          echo "VPC: $VPC_ID"
+          echo "Subnets: $SUBNETS"
+          echo "Certificate: $CERT_ARN"
+
+      # ----------------------------------------------------------------
+      # 5. Setup Node.js + Build frontend (env-specific API URL)
+      # ----------------------------------------------------------------
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          VITE_API_BASE_URL=https://${{ needs.determine-environment.outputs.api_domain }} npm run build
+
+      # ----------------------------------------------------------------
+      # 5. Clean up failed stacks (env-prefixed names)
+      # ----------------------------------------------------------------
+      - name: Clean up failed stacks
+        run: |
+          for STACK in ee-toolbox-${ENV}-database ee-toolbox-${ENV}-app ee-toolbox-${ENV}-frontend; do
+            STATUS=$(aws cloudformation describe-stacks --stack-name $STACK \
+              --query "Stacks[0].StackStatus" --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+            echo "Stack $STACK status: $STATUS"
+
+            case "$STATUS" in
+              ROLLBACK_COMPLETE|DELETE_FAILED|REVIEW_IN_PROGRESS|CREATE_FAILED|UPDATE_ROLLBACK_COMPLETE)
+                echo "Deleting $STACK (status: $STATUS)..."
+                aws cloudformation delete-stack --stack-name $STACK
+                aws cloudformation wait stack-delete-complete --stack-name $STACK
+                echo "$STACK deleted."
+                ;;
+              CREATE_IN_PROGRESS|UPDATE_IN_PROGRESS|UPDATE_ROLLBACK_IN_PROGRESS)
+                echo "$STACK is stuck in $STATUS. Waiting up to 5 min for it to settle..."
+                # Poll for up to 5 minutes (30 x 10s)
+                for i in $(seq 1 30); do
+                  sleep 10
+                  CURRENT=$(aws cloudformation describe-stacks --stack-name $STACK \
+                    --query "Stacks[0].StackStatus" --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+                  echo "  [$i/30] $STACK status: $CURRENT"
+                  if [[ "$CURRENT" != *"_IN_PROGRESS" ]]; then
+                    break
+                  fi
+                done
+                # Re-check: if still in progress or in a failed terminal state, delete
+                CURRENT=$(aws cloudformation describe-stacks --stack-name $STACK \
+                  --query "Stacks[0].StackStatus" --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+                if [[ "$CURRENT" == *"_IN_PROGRESS" ]] || [[ "$CURRENT" == "ROLLBACK_COMPLETE" ]] || \
+                   [[ "$CURRENT" == "CREATE_FAILED" ]] || [[ "$CURRENT" == "UPDATE_ROLLBACK_COMPLETE" ]] || \
+                   [[ "$CURRENT" == "DELETE_FAILED" ]]; then
+                  echo "Deleting $STACK (status: $CURRENT)..."
+                  aws cloudformation delete-stack --stack-name $STACK
+                  aws cloudformation wait stack-delete-complete --stack-name $STACK
+                  echo "$STACK deleted."
+                fi
+                ;;
+            esac
+          done
+
+      # ----------------------------------------------------------------
+      # 6. Deploy database stack (env-prefixed)
+      # ----------------------------------------------------------------
+      - name: Deploy database stack
+        run: |
+          aws cloudformation deploy \
+            --template-file infra/ee-toolbox-database.yaml \
+            --stack-name ee-toolbox-${ENV}-database \
+            --parameter-overrides \
+              Environment=$ENV \
+              VpcId=${{ steps.vpc.outputs.vpc_id }} \
+              SubnetIds=${{ steps.vpc.outputs.subnets }} \
+            --no-fail-on-empty-changeset \
+            --capabilities CAPABILITY_IAM
+
+      # ----------------------------------------------------------------
+      # 7. Get database outputs (env-prefixed stack)
+      # ----------------------------------------------------------------
+      - name: Get database outputs
+        id: db-outputs
+        run: |
+          DB_ENDPOINT=$(aws cloudformation describe-stacks \
+            --stack-name ee-toolbox-${ENV}-database \
+            --query "Stacks[0].Outputs[?OutputKey=='DBEndpoint'].OutputValue" \
+            --output text)
+          DB_SECRET_ARN=$(aws cloudformation describe-stacks \
+            --stack-name ee-toolbox-${ENV}-database \
+            --query "Stacks[0].Outputs[?OutputKey=='DBSecretArn'].OutputValue" \
+            --output text)
+          RDS_SG_ID=$(aws cloudformation describe-stacks \
+            --stack-name ee-toolbox-${ENV}-database \
+            --query "Stacks[0].Outputs[?OutputKey=='RDSSecurityGroupId'].OutputValue" \
+            --output text)
+          echo "db_endpoint=$DB_ENDPOINT" >> $GITHUB_OUTPUT
+          echo "db_secret_arn=$DB_SECRET_ARN" >> $GITHUB_OUTPUT
+          echo "rds_sg_id=$RDS_SG_ID" >> $GITHUB_OUTPUT
+
+      # ----------------------------------------------------------------
+      # 8. Login to ECR
+      # ----------------------------------------------------------------
+      - name: Login to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # ----------------------------------------------------------------
+      # 9. Ensure ECR repo exists (env-prefixed)
+      # ----------------------------------------------------------------
+      - name: Ensure ECR repository exists
+        run: |
+          ECR_REPO="ee-toolbox-${ENV}-backend"
+          aws ecr describe-repositories --repository-names $ECR_REPO 2>/dev/null || \
+            aws ecr create-repository --repository-name $ECR_REPO --image-tag-mutability MUTABLE
+
+      # ----------------------------------------------------------------
+      # 10. Build and push Docker image (env-prefixed ECR repo)
+      # ----------------------------------------------------------------
+      - name: Build and push Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          ECR_REPO="ee-toolbox-${ENV}-backend"
+          docker build -t $ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPO:latest .
+          docker push $ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPO:latest
+
+      # ----------------------------------------------------------------
+      # 12. Deploy app stack (env-prefixed, pass Environment param)
+      # ----------------------------------------------------------------
+      - name: Deploy app stack
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          STACK_NAME="ee-toolbox-${ENV}-app"
+          ECR_REPO="ee-toolbox-${ENV}-backend"
+          STACK_STATUS=$(aws cloudformation describe-stacks --stack-name $STACK_NAME \
+            --query "Stacks[0].StackStatus" --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+
+          if [ "$STACK_STATUS" = "DOES_NOT_EXIST" ]; then
+            echo "Creating app stack for the first time (using create-stack to bypass changeset hooks)..."
+            # Write parameters to JSON file (avoids shell quoting issues with commas in SubnetIds)
+            cat > /tmp/app-params.json << PARAMS_EOF
+          [
+            {"ParameterKey":"Environment","ParameterValue":"${ENV}"},
+            {"ParameterKey":"DBEndpoint","ParameterValue":"${{ steps.db-outputs.outputs.db_endpoint }}"},
+            {"ParameterKey":"DBSecretArn","ParameterValue":"${{ steps.db-outputs.outputs.db_secret_arn }}"},
+            {"ParameterKey":"RDSSecurityGroupId","ParameterValue":"${{ steps.db-outputs.outputs.rds_sg_id }}"},
+            {"ParameterKey":"VpcId","ParameterValue":"${{ steps.vpc.outputs.vpc_id }}"},
+            {"ParameterKey":"SubnetIds","ParameterValue":"${{ steps.vpc.outputs.subnets }}"},
+            {"ParameterKey":"CertificateArn","ParameterValue":"${{ steps.vpc.outputs.cert_arn }}"},
+            {"ParameterKey":"ImageTag","ParameterValue":"${IMAGE_TAG}"},
+            {"ParameterKey":"AnthropicApiKey","ParameterValue":"${{ secrets.ANTHROPIC_API_KEY }}"},
+            {"ParameterKey":"OpenAIApiKey","ParameterValue":"${{ secrets.OPENAI_API_KEY }}"},
+            {"ParameterKey":"AdminPassword","ParameterValue":"${{ secrets.ADMIN_PASSWORD }}"}
+          ]
+          PARAMS_EOF
+            aws cloudformation create-stack \
+              --stack-name $STACK_NAME \
+              --template-body file://infra/ee-toolbox-app.yaml \
+              --parameters file:///tmp/app-params.json \
+              --capabilities CAPABILITY_NAMED_IAM
+            echo "Waiting for stack creation..."
+            aws cloudformation wait stack-create-complete --stack-name $STACK_NAME
+          else
+            echo "Updating existing app stack (status: $STACK_STATUS)..."
+            aws cloudformation deploy \
+              --template-file infra/ee-toolbox-app.yaml \
+              --stack-name $STACK_NAME \
+              --parameter-overrides \
+                Environment=$ENV \
+                DBEndpoint=${{ steps.db-outputs.outputs.db_endpoint }} \
+                DBSecretArn=${{ steps.db-outputs.outputs.db_secret_arn }} \
+                RDSSecurityGroupId=${{ steps.db-outputs.outputs.rds_sg_id }} \
+                VpcId=${{ steps.vpc.outputs.vpc_id }} \
+                SubnetIds=${{ steps.vpc.outputs.subnets }} \
+                CertificateArn=${{ steps.vpc.outputs.cert_arn }} \
+                ImageTag=$IMAGE_TAG \
+                AnthropicApiKey=${{ secrets.ANTHROPIC_API_KEY }} \
+                OpenAIApiKey=${{ secrets.OPENAI_API_KEY }} \
+                AdminPassword=${{ secrets.ADMIN_PASSWORD }} \
+              --capabilities CAPABILITY_NAMED_IAM \
+              --no-fail-on-empty-changeset
+          fi
+
+      # ----------------------------------------------------------------
+      # 12b. Get ALB outputs for DNS (before switching credentials later)
+      # ----------------------------------------------------------------
+      - name: Get ALB outputs for DNS
+        id: alb-outputs
+        run: |
+          APP_STACK="ee-toolbox-${ENV}-app"
+          ALB_DNS=$(aws cloudformation describe-stacks \
+            --stack-name $APP_STACK \
+            --query "Stacks[0].Outputs[?OutputKey=='ALBDnsName'].OutputValue" \
+            --output text)
+          ALB_ZONE=$(aws cloudformation describe-stacks \
+            --stack-name $APP_STACK \
+            --query "Stacks[0].Outputs[?OutputKey=='ALBCanonicalHostedZoneID'].OutputValue" \
+            --output text)
+          echo "alb_dns=$ALB_DNS" >> $GITHUB_OUTPUT
+          echo "alb_zone=$ALB_ZONE" >> $GITHUB_OUTPUT
+          echo "ALB DNS: $ALB_DNS"
+          echo "ALB Zone: $ALB_ZONE"
+
+      # ----------------------------------------------------------------
+      # 13. Force ECS deployment (env-prefixed cluster/service)
+      # ----------------------------------------------------------------
+      - name: Force ECS deployment
+        run: |
+          aws ecs update-service \
+            --cluster ee-toolbox-${ENV}-cluster \
+            --service ee-toolbox-${ENV}-service \
+            --force-new-deployment
+
+      # ----------------------------------------------------------------
+      # 14. Wait for backend health (env-specific domain)
+      # ----------------------------------------------------------------
+      - name: Wait for backend health
+        run: |
+          HEALTH_URL="https://${API_DOMAIN}/health"
+          echo "Waiting for backend to become healthy at ${HEALTH_URL}..."
+          # Wait for ECS service to stabilize (up to 8 minutes)
+          for i in $(seq 1 48); do
+            STATUS_CODE=$(curl -s -o /dev/null -w '%{http_code}' \
+              "$HEALTH_URL" 2>/dev/null || echo "000")
+            if [ "$STATUS_CODE" = "200" ]; then
+              echo "Backend is healthy! (attempt $i)"
+              curl -s "$HEALTH_URL"
+              break
+            fi
+            echo "  [$i/48] Health check returned $STATUS_CODE, waiting 10s..."
+            sleep 10
+          done
+          if [ "$STATUS_CODE" != "200" ]; then
+            echo "WARNING: Backend health check did not return 200 after 8 minutes."
+            echo "Continuing anyway - seed step will retry or fail with details."
+          fi
+
+      # ----------------------------------------------------------------
+      # 15. Seed database (env-prefixed resources)
+      # ----------------------------------------------------------------
+      - name: Seed database
+        run: |
+          echo "Running database seed task..."
+
+          # Get ECS security group (env-prefixed name)
+          ECS_SG=$(aws ec2 describe-security-groups \
+            --filters "Name=group-name,Values=ee-toolbox-${ENV}-ecs-sg" \
+            --query "SecurityGroups[0].GroupId" --output text)
+
+          SUBNETS="${{ steps.vpc.outputs.subnets }}"
+
+          # Format subnets for JSON (comma-separated -> JSON array items)
+          SUBNET_JSON=$(echo "$SUBNETS" | sed 's/,/","/g')
+
+          # Run one-time ECS task with seed command (env-prefixed cluster and task definition)
+          TASK_RESULT=$(aws ecs run-task \
+            --cluster ee-toolbox-${ENV}-cluster \
+            --task-definition ee-toolbox-${ENV}-backend \
+            --launch-type FARGATE \
+            --network-configuration "{\"awsvpcConfiguration\":{\"subnets\":[\"$SUBNET_JSON\"],\"securityGroups\":[\"$ECS_SG\"],\"assignPublicIp\":\"ENABLED\"}}" \
+            --overrides '{"containerOverrides":[{"name":"ee-toolbox-backend","command":["python","/app/backend/scripts/seed_db.py"]}]}' \
+            --count 1)
+
+          TASK_ARN=$(echo "$TASK_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['tasks'][0]['taskArn'])")
+          TASK_ID=$(echo "$TASK_ARN" | rev | cut -d/ -f1 | rev)
+          echo "Seed task started: $TASK_ID"
+
+          # Wait for task to complete (up to 10 minutes)
+          echo "Waiting for seed task to complete..."
+          aws ecs wait tasks-stopped --cluster ee-toolbox-${ENV}-cluster --tasks "$TASK_ARN"
+
+          # Check exit code
+          EXIT_CODE=$(aws ecs describe-tasks \
+            --cluster ee-toolbox-${ENV}-cluster \
+            --tasks "$TASK_ARN" \
+            --query "tasks[0].containers[0].exitCode" --output text)
+
+          echo "Seed task exit code: $EXIT_CODE"
+
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "Seed task failed. Fetching logs..."
+            # Find the log stream (env-prefixed log group)
+            LOG_STREAM=$(aws logs describe-log-streams \
+              --log-group-name /ecs/ee-toolbox-${ENV}-backend \
+              --order-by LastEventTime --descending --limit 5 \
+              --query "logStreams[?contains(logStreamName, '$TASK_ID')].logStreamName | [0]" \
+              --output text 2>/dev/null || echo "NOT_FOUND")
+            if [ "$LOG_STREAM" != "NOT_FOUND" ] && [ "$LOG_STREAM" != "None" ]; then
+              aws logs get-log-events \
+                --log-group-name /ecs/ee-toolbox-${ENV}-backend \
+                --log-stream-name "$LOG_STREAM" \
+                --limit 50 \
+                --query "events[*].message" --output text
+            fi
+            echo "WARNING: Seed task failed but continuing deployment."
+          else
+            echo "Database seeding complete!"
+          fi
+
+      # ----------------------------------------------------------------
+      # 16. Deploy frontend stack (env-prefixed)
+      # ----------------------------------------------------------------
+      - name: Deploy frontend stack
+        run: |
+          STACK_NAME="ee-toolbox-${ENV}-frontend"
+          APP_STACK="ee-toolbox-${ENV}-app"
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name $APP_STACK \
+            --query "Stacks[0].Outputs[?OutputKey=='APIUrl'].OutputValue" \
+            --output text)
+          aws cloudformation deploy \
+            --template-file infra/ee-toolbox-frontend.yaml \
+            --stack-name $STACK_NAME \
+            --parameter-overrides \
+              Environment=$ENV \
+              APIUrl=$API_URL \
+            --no-fail-on-empty-changeset
+
+      # ----------------------------------------------------------------
+      # 17. Deploy to Amplify (env-prefixed)
+      # ----------------------------------------------------------------
+      - name: Deploy to Amplify
+        run: |
+          STACK_NAME="ee-toolbox-${ENV}-frontend"
+          APP_ID=$(aws cloudformation describe-stacks \
+            --stack-name $STACK_NAME \
+            --query "Stacks[0].Outputs[?OutputKey=='AmplifyAppId'].OutputValue" \
+            --output text)
+
+          # Create ZIP of frontend build
+          cd frontend/dist && zip -r ../../frontend-build.zip . && cd ../..
+
+          # Create deployment (Amplify branch name stays 'main' regardless of environment)
+          DEPLOY_RESULT=$(aws amplify create-deployment --app-id $APP_ID --branch-name main)
+          JOB_ID=$(echo $DEPLOY_RESULT | python3 -c "import sys,json; print(json.load(sys.stdin)['jobId'])")
+          UPLOAD_URL=$(echo $DEPLOY_RESULT | python3 -c "import sys,json; print(json.load(sys.stdin)['zipUploadUrl'])")
+
+          # Upload and start
+          curl -T frontend-build.zip "$UPLOAD_URL"
+          aws amplify start-deployment --app-id $APP_ID --branch-name main --job-id $JOB_ID
+
+          # Wait for deployment
+          echo "Waiting for Amplify deployment..."
+          for i in $(seq 1 30); do
+            STATUS=$(aws amplify get-job \
+              --app-id $APP_ID \
+              --branch-name main \
+              --job-id $JOB_ID \
+              --query "job.summary.status" \
+              --output text)
+            echo "  Status: $STATUS"
+            if [ "$STATUS" = "SUCCEED" ]; then
+              echo "Frontend deployment successful!"
+              break
+            elif [ "$STATUS" = "FAILED" ] || [ "$STATUS" = "CANCELLED" ]; then
+              echo "Frontend deployment failed with status: $STATUS"
+              exit 1
+            fi
+            sleep 10
+          done
+
+      # ----------------------------------------------------------------
+      # DNS: Update Route53 record via management account
+      # ----------------------------------------------------------------
+      - name: Configure management account credentials (for DNS)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_MGMT_ROLE_ARN }}
+          aws-region: eu-central-1
+
+      - name: Update DNS record
+        run: |
+          ALB_DNS="${{ steps.alb-outputs.outputs.alb_dns }}"
+          ALB_ZONE="${{ steps.alb-outputs.outputs.alb_zone }}"
+
+          if [ -z "$ALB_DNS" ] || [ "$ALB_DNS" = "None" ]; then
+            echo "WARNING: Could not get ALB DNS. Skipping DNS update."
+            exit 0
+          fi
+
+          echo "Updating DNS: ${API_DOMAIN} -> ${ALB_DNS}"
+          aws route53 change-resource-record-sets \
+            --hosted-zone-id Z079841559W4HJ5A3Q2Y \
+            --change-batch '{
+              "Changes": [{
+                "Action": "UPSERT",
+                "ResourceRecordSet": {
+                  "Name": "'"${API_DOMAIN}"'",
+                  "Type": "A",
+                  "AliasTarget": {
+                    "HostedZoneId": "'"${ALB_ZONE}"'",
+                    "DNSName": "'"${ALB_DNS}"'",
+                    "EvaluateTargetHealth": true
+                  }
+                }
+              }]
+            }'
+          echo "DNS record updated successfully."
+
+      # Re-authenticate back to the deploy account for remaining steps
+      - name: Re-configure deploy account credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: eu-central-1
+
+      # ----------------------------------------------------------------
+      # 18. Deployment summary (env-specific URLs)
+      # ----------------------------------------------------------------
+      - name: Deployment summary
+        run: |
+          echo "=== Deployment Complete ==="
+          echo "Environment: ${ENV}"
+          echo "Backend API: https://${API_DOMAIN}"
+          echo "Frontend (custom domain): https://${FRONTEND_DOMAIN}"
+          echo "Health check: https://${API_DOMAIN}/health"
+
+          # Show Amplify default domain (always accessible, even without custom domain)
+          FRONTEND_STACK="ee-toolbox-${ENV}-frontend"
+          AMPLIFY_DOMAIN=$(aws cloudformation describe-stacks \
+            --stack-name $FRONTEND_STACK \
+            --query "Stacks[0].Outputs[?OutputKey=='AmplifyDefaultDomain'].OutputValue" \
+            --output text 2>/dev/null || echo "unknown")
+          echo "Frontend (Amplify default): https://main.${AMPLIFY_DOMAIN}"

@@ -1,0 +1,180 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  EE Toolbox - Database stack.
+  Creates a PostgreSQL 16 RDS instance with Secrets Manager credentials
+  in the default VPC.
+
+# =============================================================================
+# Parameters
+# =============================================================================
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [mgmt, dev, tst, prd]
+    Default: mgmt
+    Description: Deployment environment
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC for the RDS instance
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnets for the DB subnet group (eu-central-1a/b/c)
+
+# =============================================================================
+# Mappings
+# =============================================================================
+Mappings:
+  EnvironmentConfig:
+    dev:
+      DBInstanceClass: db.t4g.micro
+    tst:
+      DBInstanceClass: db.t4g.micro
+    prd:
+      DBInstanceClass: db.t4g.small
+    mgmt:
+      DBInstanceClass: db.t4g.micro
+
+# =============================================================================
+# Resources
+# =============================================================================
+Resources:
+
+  # ---------------------------------------------------------------------------
+  # DB Subnet Group
+  # ---------------------------------------------------------------------------
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: EE Toolbox RDS subnet group (default VPC)
+      DBSubnetGroupName: !Sub 'ee-toolbox-${Environment}-db-subnet-group'
+      SubnetIds: !Ref SubnetIds
+      Tags:
+        - Key: Project
+          Value: ee-toolbox
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Team
+          Value: enabling-environments
+        - Key: CostCenter
+          Value: CGIAR-EE
+        - Key: ManagedBy
+          Value: cloudformation
+        - Key: Service
+          Value: database
+
+  # ---------------------------------------------------------------------------
+  # Secrets Manager - master credentials
+  # ---------------------------------------------------------------------------
+  DBSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub 'ee-toolbox-${Environment}-db-credentials'
+      Description: EE Toolbox RDS master credentials
+      GenerateSecretString:
+        SecretStringTemplate: '{"username":"eetoolbox"}'
+        GenerateStringKey: password
+        PasswordLength: 32
+        ExcludeCharacters: '"@/\\'
+      Tags:
+        - Key: Project
+          Value: ee-toolbox
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Team
+          Value: enabling-environments
+        - Key: CostCenter
+          Value: CGIAR-EE
+        - Key: ManagedBy
+          Value: cloudformation
+        - Key: Service
+          Value: database
+
+  # ---------------------------------------------------------------------------
+  # Security Group for RDS
+  # ---------------------------------------------------------------------------
+  RDSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub 'ee-toolbox-${Environment}-rds-sg'
+      GroupDescription: Security group for EE Toolbox RDS instance
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: !Sub 'ee-toolbox-${Environment}-rds-sg'
+        - Key: Project
+          Value: ee-toolbox
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Team
+          Value: enabling-environments
+        - Key: CostCenter
+          Value: CGIAR-EE
+        - Key: ManagedBy
+          Value: cloudformation
+        - Key: Service
+          Value: database
+
+  # ---------------------------------------------------------------------------
+  # RDS Instance - PostgreSQL 16
+  # ---------------------------------------------------------------------------
+  DBInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: !Sub 'ee-toolbox-${Environment}-db'
+      Engine: postgres
+      EngineVersion: "16.6"
+      DBInstanceClass: !FindInMap [EnvironmentConfig, !Ref Environment, DBInstanceClass]
+      AllocatedStorage: 20
+      StorageType: gp3
+      MasterUsername: !Sub "{{resolve:secretsmanager:${DBSecret}:SecretString:username}}"
+      MasterUserPassword: !Sub "{{resolve:secretsmanager:${DBSecret}:SecretString:password}}"
+      VPCSecurityGroups:
+        - !GetAtt RDSSecurityGroup.GroupId
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      PubliclyAccessible: false
+      DeletionProtection: false
+      BackupRetentionPeriod: 1
+      DBName: ee_toolbox
+      Tags:
+        - Key: Project
+          Value: ee-toolbox
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Team
+          Value: enabling-environments
+        - Key: CostCenter
+          Value: CGIAR-EE
+        - Key: ManagedBy
+          Value: cloudformation
+        - Key: Service
+          Value: database
+
+# =============================================================================
+# Outputs
+# =============================================================================
+Outputs:
+  DBEndpoint:
+    Description: RDS instance endpoint address
+    Value: !GetAtt DBInstance.Endpoint.Address
+    Export:
+      Name: !Sub 'ee-toolbox-${Environment}-DBEndpoint'
+
+  DBPort:
+    Description: RDS instance port
+    Value: !GetAtt DBInstance.Endpoint.Port
+    Export:
+      Name: !Sub 'ee-toolbox-${Environment}-DBPort'
+
+  DBSecretArn:
+    Description: ARN of the Secrets Manager secret for DB credentials
+    Value: !Ref DBSecret
+    Export:
+      Name: !Sub 'ee-toolbox-${Environment}-DBSecretArn'
+
+  RDSSecurityGroupId:
+    Description: Security group ID for the RDS instance
+    Value: !GetAtt RDSSecurityGroup.GroupId
+    Export:
+      Name: !Sub 'ee-toolbox-${Environment}-RDSSecurityGroupId'

@@ -1,0 +1,557 @@
+[
+  {
+    "title": "Assessing the impact of Gliricidia agroforestry-based interventions on crop nutritional, antinutritional, functional, and mineral compositions in eastern Province, Zambia",
+    "abstract": "Agroforestry practices improve soil health which in turn improves crop nutrient concentrations and quality. This study examined how the agroforestry tree Gliricidia sepium intercropped with soybean, groundnuts, or maize affects crop nutrient compositions. The study was conducted in five Zambian chiefdoms for three crop-growing seasons (2019–2022) on 13 farmer-led demonstration trial sites. Seven treatments were tested that included maize, soybean, and groundnut plots with and without Gliricidia interventions. Grain samples were analyzed for crop nutrient contents using standard laboratory methods. Results showed that the treatments significantly (P < 0.05) improved maize nutritional properties except for crude fiber, total carbohydrate, and metabolizable energy. G. sepium intercropping with maize and soybean decreased the antinutritional contents and displayed better functional qualities. All elemental mineral components (except potassium, calcium, and sodium) were higher in the Gliricidia + maize intercrop than in the control treatment. The Gliricidia+soybean intercrop had lower mean mineral concentrations than the control (soybean only) except for Mg, Cu, and Zn. The Giliricidia+groundnut intercrop significantly increased groundnut mineral components except for Nitrogen, Phosphorus, Potassium, and Iron. It can be concluded that G. sepium intercropped with maize, soybean, and groundnuts significantly improved the crops’ nutritional quality.",
+    "authors": "Alamu, E.O.; Njoloma, J.; Akello, J.; Ngumayo, J.; Ray, C.; Mehreteab, T.; Chikoye, D.; Nyoka, I.; Dale, L.; Nagothu, U.S.",
+    "date": "2023",
+    "url": "https://hdl.handle.net/10568/132337",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/132337",
+    "geography_hints": [
+      "Zambia",
+      "Africa",
+      "Southern Africa"
+    ]
+  },
+  {
+    "title": "Drought vulnerability of central Sahel agrosystems: a modelling-approach based on magnitudes of changes and machine learning techniques",
+    "abstract": "",
+    "authors": "Hanade Houmma, I.; El Mansouri, L.; Gadal, S.; Faouzi, E.; Touré, A.A.; Garba, M.; Imani, Y.; El-Ayachi, M.; Hadria, R.",
+    "date": "2023",
+    "url": "https://hdl.handle.net/10568/139098",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/139098",
+    "geography_hints": [
+      "Niger",
+      "Africa",
+      "Western Africa"
+    ]
+  },
+  {
+    "title": "The role of inter-specific competition for water in maize-legume intercropping systems in northern Tanzania",
+    "abstract": "CONTEXT\r\nMaize-legume intercropping is common in sub-Saharan Africa. Effects of legumes on the companion maize crop are determined principally by choice of legume species and relative introduction time. Performance of intercrops is optimized when legumes' planting is timed such that their peak growth phase occurs after maize harvest, with legumes utilizing the residual soil moisture.\r\n\r\nOBJECTIVE\r\nWe sought to understand the role of inter-specific competition for water in maize-pigeonpea and maize-lablab intercrops.\r\n\r\nMETHODS\r\nWe analysed experimentally determined shoot biomass of sole and intercropped maize, lablab, long and medium- duration pigeonpea. Experiments were conducted in northern Tanzania for two consecutive seasons. The second season was drier (236 mm) than the first (551 mm). We constructed a parameter-sparse growth model, calibrated based on sole crops data. The model calculates growth rate as radiation interception × radiation-use efficiency. When simulated actual soil moisture content fell below a species-specific critical level, the ratio between actual and potential transpiration for that species decreased, and crop growth rate was reduced proportional to this reduction.\r\n\r\nRESULTS AND CONCLUSIONS\r\nThere was good agreement between simulated and observed shoot biomass of maize and the legumes. With rooting depth of 60 cm, maize was simulated to be sensitive to annual precipitation, resulting in 3.5 t ha−1 (34%) reduction in shoot dry matter production in the second season. By contrast, the legumes, with a rooting depth of 200 cm did not experience water shortage in either of the two seasons, resulting in nearly identical shoot dry matter production in both seasons. Explorative simulations assuming the legumes to have shallower rooting depth confirmed the importance of this trait for avoidance of water stress, with simulated reductions in dry matter production of 23–34% for the legumes when rooting depth was reduced from 200 to 60 cm. Maize in the intercrop was modestly influenced by the legumes due to light competition. In the low precipitation season, additional competition for water occurred and water shortage for maize was aggravated. Maize influenced the legumes only through competition for light, as a tap root allowed the legumes to utilize water stored in deeper soil layers. During the co-growth period, competition for light exerted by maize on the legumes was strong, but they partly compensated for this in the period after maize harvest.\r\n\r\nSIGNIFICANCE\r\nOur results emphasize the important role of the deep legume tap root for the success of maize-legume intercrops under rain-fed conditions.",
+    "authors": "Mugi-Ngenga, E.; Bastiaans, L.; Anten, N.P.R.; Zingore, S.; Baijukya, F.; Giller, Kenneth E.",
+    "date": "2023-04",
+    "url": "https://hdl.handle.net/10568/130657",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/130657",
+    "geography_hints": [
+      "Tanzania",
+      "Africa",
+      "Eastern Africa"
+    ]
+  },
+  {
+    "title": "Modelling the impacts of diverse cover crops on soil water and nitrogen and cash crop yields in a sub-tropical dryland",
+    "abstract": "Understanding the implications of replacing fallows with cover crops on plant-available water (PAW) and soil mineral nitrogen (N) and their carry-over effects on subsequent cash crops is critical for understanding their potential for ecological intensification in water-limited environments. We modelled the impacts of different cover crop functional types over historical climate to predict how climate variability influences soil water and N acquisition and subsequent availability to a maize crop in a dryland farming system of subtropical Australia. Following local validation of simulation models (APSIM) with 3-site-years of field data, 70 years of crop-fallow rotations were simulated comparing conventional fallow against a diverse range of cover crops comprising monocultures and mixtures of grass vs. legume vs. brassica. Cover crops consistently reduced soil water and mineral N at maize sowing compared to conventional fallow. In dry to normal precipitation years, this induced a maize yield penalty of up to − 18% relative to fallow, primarily due to reduced water availability. In wet years, increased in maize grain yield (+4%) was predicted following legume and grass-associated cover crop mixtures with concomitant reductions in N leaching and soil surface runoff of up to 40%. Cash crop yields following grass-cover crops were more stable and carried lower downside risks; multi-species (grass-legume-brassica) cover crop mixtures carried higher yield penalties and greater downside risks due to high biomass accumulation and high soil water extraction. These long-term predictions in water-limited environments indicate that increasing cover crop complexity by using mixtures with diverse functional traits can lead to a greater risk of yield losses and increased yield instability unless they are managed differently to monoculture cover crops. Therefore, for successful integration of cover crops into dryland agroecosystems, cover crops should be considered as a flexible choice grown under favourable precipitation and economic scenarios rather than for continuous fallow replacement.",
+    "authors": "Garba, I.I.; Bell, L.W.; Chapman, S.C.; Voil, P. de; Kamara, A.; Williams, A.",
+    "date": "2023-10",
+    "url": "https://hdl.handle.net/10568/131216",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/131216",
+    "geography_hints": [
+      "Australia",
+      "Australia and New Zealand"
+    ]
+  },
+  {
+    "title": "A global meta-analysis of soil organic carbon in the Anthropocene",
+    "abstract": "Anthropogenic activities profoundly impact soil organic carbon (SOC), affecting its contribution to ecosystem services such as climate regulation. Here, we conducted a thorough review of the impacts of land-use change, land management, and climate change on SOC. Using second-order meta-analysis, we synthesized findings from 230 first-order meta-analyses comprising over 25,000 primary studies. We show that (i) land conversion for crop production leads to high SOC loss, that can be partially restored through land management practices, particularly by introducing trees and incorporating exogenous carbon in the form of biochar or organic amendments, (ii) land management practices that are implemented in forests generally result in depletion of SOC, and (iii) indirect effects of climate change, such as through wildfires, have a greater impact on SOC than direct climate change effects (e.g., from rising temperatures). The findings of our study provide strong evidence to assist decision-makers in safeguarding SOC stocks and promoting land management practices for SOC restoration. Furthermore, they serve as a crucial research roadmap, identifying areas that require attention to fill the knowledge gaps concerning the factors driving changes in SOC.",
+    "authors": "Beillouin, D.; Corbeels, Marc; Demenois, J.; Berre, D.; Boyer, A.; Fallot, A.; Feder, F.; Cardinael, R.",
+    "date": "2023",
+    "url": "https://hdl.handle.net/10568/138268",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/138268",
+    "geography_hints": []
+  },
+  {
+    "title": "Cassava molecular genetics and genomics for enhanced resistance to diseases and pests",
+    "abstract": "Cassava (Manihot esculenta) is one of the most important sources of dietary calories in the tropics, playing a central role in food and economic security for smallholder farmers. Cassava production is highly constrained by several pests and diseases, mostly cassava mosaic disease (CMD) and cassava brown streak disease (CBSD). These diseases cause significant yield losses, affecting food security and the livelihoods of smallholder farmers. Developing resistant varieties is a good way of increasing cassava productivity. Although some levels of resistance have been developed for some of these diseases, there is observed breakdown in resistance for some diseases, such as CMD. A frequent re-evaluation of existing disease resistance traits is required to make sure they are still able to withstand the pressure associated with pest and pathogen evolution. Modern breeding approaches such as genomic-assisted selection in addition to biotechnology techniques like classical genetic engineering or genome editing can accelerate the development of pest- and disease-resistant cassava varieties. This article summarizes current developments and discusses the potential of using molecular genetics and genomics to produce cassava varieties resistant to diseases and pests.",
+    "authors": "Ntui, V.O.; Tripathi, J.; Kariuki, S.M.; Tripathi, L.",
+    "date": "2023",
+    "url": "https://hdl.handle.net/10568/132870",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/132870",
+    "geography_hints": []
+  },
+  {
+    "title": "Evaluating the use of nitrogen and phosphorous fertilization as crop management options for maize adaptation to climate change in the Nigeria savannas",
+    "abstract": "Poor soil fertility and climate variability are major constraints to maize production in the Nigeria savannas. The application of nitrogen (N) and phosphorus (P) as adaptation strategy may enhance maize yield under climate change. In this study, the already calibrated and validated CERES-maize model in DSSAT was used to simulate the response of maize varieties to N and P in three agroecological zones. Similarly, the model, coupled with data for representative concentration pathways (RCP4.5 and RCP8.5) scenarios, was applied to simulate maize yields for mid-century and end-of-century periods and to estimate the effect of use of N and P as a strategy for maize adaptation to climate change. Results of a 30-year sensitivity analysis showed that the optimum grain yields were obtained with application of 150 kg N + 30 kg P ha–1 to the two varieties in Kano and Zaria. In Abuja, the optimum grain yields were obtained with the application of 150 kg N ha–1 + 30 kg P ha–1 to SAMMAZ–15 and 120 kg N ha–1 + 30 kg P ha–1 to SAMMAZ–16. When P is not applied, the simulation results show that across all N rates, maize yield would decrease by 25%–52% and 32%–52% for the mid- and end-of-century, respectively, under RCP4.5 for both varieties. There would be a greater reduction under RCP8.5, with a decrease of 32%–59% and 52%–69% under mid- and end-of-century scenarios, respectively. When P is applied at 30 kg ha−1, the reduction in yield due to climate change is lower. Under RCP4.5, the yield would decrease by 9%–15% and 11%–21% for the mid- and end-of-century, respectively. There would be a reduction of 12%–21% and 32%–41% for mid-century and end-of-century, respectively, under RCP8.5 scenario. This suggests that the application of optimum P could reduce the impact of yield loss due to climate change.",
+    "authors": "Tofa, A.; Kamara, A.; Babaji, B.A.; Adnan, A.A.; Ademulegun, T.; Bebeley, J.F.",
+    "date": "2023-05-01",
+    "url": "https://hdl.handle.net/10568/130440",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/130440",
+    "geography_hints": [
+      "Nigeria",
+      "Africa",
+      "Western Africa"
+    ]
+  },
+  {
+    "title": "Amylose, rheological and functional properties of yellow cassava flour as affected by pretreatment and drying methods",
+    "abstract": "This study reconnoitered the effects of preservative treatments (0.3% Sodium Metabisulphite solution (SMS); and 0.3% Citric Acid solution (CAS)) and drying methods (flash- and cabinet-drying) on the rheological profile, amylose and functional properties of flour from yellow-fleshed cassava varieties. Four preservative-treated flour samples (Sodium Metabisulphite cabinet-dried (SMC); Sodium Metabisulphite flash-dried (SMF); Citric Acid cabinet-dried (CAC); and Citric Acid flash-dried (CAF) were evaluated. The rheological profile (peak, breakdown, setback and final viscosity) of flash-dried samples treated with sodium metabisulphite exhibited the highest values (891 RVU, 586 RVU, 208 RVU and 513 RVU) respectively. The cabinet-dried samples treated with citric acid had the least peak, trough and final viscosity of 497 RVU, 211 RVU and 326 RVU respectively. The flash-dried flour samples had the highest values for water absorption capacity while cabinet-dried (CAC) flour samples had the highest dispersibility. Therefore, flash-dried flour samples are more likely suited for food formulations requiring good pasting quality and moderately high gel strength.",
+    "authors": "Ekeledo, E.; Latif, S.; Abass, A.; Muller, J.",
+    "date": "2023-12",
+    "url": "https://hdl.handle.net/10568/130324",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/130324",
+    "geography_hints": [
+      "Nigeria",
+      "Africa",
+      "Western Africa"
+    ]
+  },
+  {
+    "title": "Assessing the suitability of stress tolerant early-maturing maize (Zea mays) inbred lines for hybrid development using combining ability effects and DArTseq markers",
+    "abstract": "Identification of hybrids for commercialization is crucial for sustainable maize production in sub-Saharan Africa (SSA). One hundred and ninety test crosses, 10 tester × tester crosses + 10 hybrid checks were evaluated across 11 environments, 2017 to 2019. Inheritance of grain yield under Striga infestation, optimal and across environments was influenced by additive genetic action, but there was greater influence of nonadditive gene action under drought stress conditions. Nine, seven and two inbreds had significant and positive general combining ability (GCA) effects for grain yield under Striga-infested, optimal and drought stress environments, respectively, and would contribute high grain yield to their progenies. Heterotic grouping methods based on specific and GCA, GCA effects of multiple traits and DArTseq markers classified the inbreds into five, three and two heterotic groups, respectively, across research conditions. The DArTseq markers method that classified the inbred lines into two major heterotic groups and was one of the most efficient methods should be adopted for practical purposes in maize breeding programmes in SSA. Hybrids TZEI 7 × TZdEI 352, TZEI 1238 × TZEI 7 and TZEI 1252 × TZEI 7 had outstanding grain yield under contrasting environments and should be tested on-farm for commercialization in SSA.",
+    "authors": "Adewale, Samuel A.; Badu-Apraku, B.; Akinwale, R.O.",
+    "date": "2023-04",
+    "url": "https://hdl.handle.net/10568/132199",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/132199",
+    "geography_hints": [
+      "Ghana",
+      "Kenya",
+      "Mali",
+      "Nigeria",
+      "Africa",
+      "Eastern Africa",
+      "Western Africa"
+    ]
+  },
+  {
+    "title": "Explaining the positioning of agricultural entrepreneurs on the necessity-opportunity continuum in sub-Saharan Africa: insights from Benin",
+    "abstract": "Despite the potential of agriculture to reduce unemployment in sub-Saharan Africa, research on agricultural entrepreneurship is scarce, especially regarding the entrepreneurs’ motivations. The aim of this research is to examine the intensity of necessity and opportunity motivations among agricultural entrepreneurs and the influence of socioeconomic characteristics, personality, and environmental factors. Hence, the study reports a survey of 819 agricultural entrepreneurs in Benin and uses multinomial logistic regressions. Most agricultural entrepreneurs are moderately necessity-driven (76%); the remainder includes highly necessity-driven entrepreneurs (4%), moderately opportunity-driven entrepreneurs (6%), and highly opportunity-driven entrepreneurs (14%). Those displaying higher intensity of necessity motivations can be at any education level, are former employees, are less proactive, less optimistic, and operate in the services sector. In contrast, highly opportunity-driven entrepreneurs are likely to have received a university education and agricultural professional training, operate in the services sector, and have better access to finance and technologies. This study advances the push-pull theory by revealing a richer set of entrepreneurial motivations beyond the simplistic dichotomic view. Hence, policymakers could devise entrepreneurship strategies and programs that consider the diverse motivations of entrepreneurs and the influencing factors to move them toward increased opportunity entrepreneurship.",
+    "authors": "Thoto, F.S.; Mignouna, Djana B.; Adeoti, R.; Gbedomon, R.C.; Chogou, S.K.; Aoudji, A.; Honfoga, B.",
+    "date": "2023",
+    "url": "https://hdl.handle.net/10568/130571",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/130571",
+    "geography_hints": [
+      "Benin",
+      "Africa",
+      "Western Africa"
+    ]
+  },
+  {
+    "title": "Genome-wide association studies of Striga resistance in extra-early maturing quality protein maize inbred lines",
+    "abstract": "Identification of genes associated with Striga resistance is invaluable for accelerating genetic gains in breeding for Striga resistance in maize. We conducted a genome-wide association study to identify genomic regions associated with grain yield and other agronomic traits under artificial Striga field infestation. One hundred and forty-one extra-early quality protein maize inbred lines were phenotyped for key agronomic traits. The inbred lines were also genotyped using 49,185 DArTseq markers from which 8,143 were retained for population structure analysis and genome wide-association study. Cluster analysis and population structure revealed the presence of 3 well-defined genetic groups. Using the mixed linear model, 22 SNP markers were identified to be significantly associated with grain yield, Striga damage at 10 weeks after planting, number of emerged Striga plants at 8 and 10 weeks after planting and ear aspect. The identified SNP markers would be useful for breeders for marker-assisted selection to accelerate the genetic enhancement of maize for Striga resistance in sub-Saharan Africa after validation.",
+    "authors": "Okunlola, G.; Badu-Apraku, Baffour; Ariyo, O.; Agre, A.P.; Offornedo, Q.N.; Ayo-Vaughan, M.A.",
+    "date": "2023-02-09",
+    "url": "https://hdl.handle.net/10568/129941",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/129941",
+    "geography_hints": [
+      "Nigeria",
+      "Africa",
+      "Western Africa"
+    ]
+  },
+  {
+    "title": "Endophytic fungi improve management of the burrowing nematode in banana (Musa spp.) through enhanced expression of defence-related genes",
+    "abstract": "The root-burrowing nematode, Radopholus similis, is reputedly the most damaging nematode pest of banana and responsible for major production losses. In this study, the endophytic potential of 13 fungal isolates was assessed for the management of R. similis in East African Highland bananas (‘Ng’ombe’). All isolates successfully colonised tissue-cultured banana roots, with isolates from Trichoderma, Fusarium and Hypocrea producing the highest (⩾49.1%) and Beauveria isolates the lowest (⩽14.4%) colonisation. The fungal endophytes T. asperellum (ICIPE 700) and H. lixii (ICIPE 697) were the most effective in reducing R. similis densities (>81%) relative to the non-inoculated control. However, the combined inoculation of ICIPE 700 and ICIPE 697 led to greater suppression of R. similis (>21%) relative to individual inoculation. Suppression of R. similis following inoculation of banana roots with ICIPE 700 and/or ICIPE 697 was associated with the significant upregulation of the defence-related gene PR-1, the cell signalling gene calmodulin Ca2+ and the cell-wall-strengthening gene β-1,3-glucan synthase. This study demonstrates the potential for nematode management in bananas with fungal endophytes, especially using the isolates ICIPE 700 and ICIPE 697 when combined.",
+    "authors": "Kisaakye, J.; Fourie, H.; Coyne, D.; Cortada, L.; Khamis, F.M.; Subramanian, S.; Masinde, S.; Haukeland, Solveig",
+    "date": "2023-03-02",
+    "url": "https://hdl.handle.net/10568/131364",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/131364",
+    "geography_hints": [
+      "Kenya",
+      "Africa",
+      "Eastern Africa"
+    ]
+  },
+  {
+    "title": "Factoring labour when comparing in situ rainwater harvesting technologies for semi-arid areas of central Tanzania",
+    "abstract": "Erratic rainfall, high evapotranspiration rates and droughts are major factors limiting crop production in semi-arid areas. Tied ridges that have crossed ties within the furrow are among the physical soil and water conservation measures. During the 2018/19 and 2019/20 seasons, we examined the efficacy of repaired tied ridges for maize crop (Zea mays) and sorghum (Sorghum bicolor) in Kongwa district of Tanzania as an alternate labour saving strategy for managing climate risks associated with variable rainfall. Treatments consisted of three tillage methods: conventional tillage (CT) which involved the preparation of a flat seedbed using handhoe, annually constructed tied ridges (ATR) and tied ridges that had been constructed during the previous season and had been repaired (residual tied ridges–RTR). Data were collected on labour requirements and crop performance. RTR increased economic returns by 29% and 80% over ATR and CT, respectively. Maize grain yield shows a trend of RTR >ATR>CT with values ranging from 2465 kg ha−1 to 4185 kg ha−1 (P < 0.01). While tillage and/or variety did not influence sorghum grain yield significantly (P > 0.05). The use of RTR is recommended because of low labour requirements and greater economic benefits than CT and ATR under maize cropping systems.",
+    "authors": "Swai, E.; Mwinuka, L.; Shitindi, M.J.; Manda, J.; Whitbread, Anthony M.; Bekunda, Mateete A.",
+    "date": "2023-11-10",
+    "url": "https://hdl.handle.net/10568/129142",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/129142",
+    "geography_hints": [
+      "Tanzania",
+      "Africa",
+      "Eastern Africa"
+    ]
+  },
+  {
+    "title": "Nematode problems in tuber crops and their sustainable management",
+    "abstract": "In many subtropical and tropical countries, the most significant food commodities produced are those that are grown from tubers and roots (R&T). The R&T include yams (Dioscorea spp. L.), cassava (Manihot esculenta Crantz), and sweet potato (Ipomoea batatas (L.) Lam.) and edible aroids such as Taro (Colocasia esculenta Schott.) and Tannia (Xanthosoma sagittifolium Schott.). These crops represent the second-largest global source of carbohydrates, after cereals, in the tropical world, with a projected two billion people in Asia, Africa, and Latin America relying on them for food, feed, and income. Around 45% of R&T crop production is used for human consumption, with the remaining 55% going to either the production of animal feed or industrial processing that results in products such as starch, distilled spirits, and a variety of other minor products. The R&T produce starchy-storage organs known as rhizomes, corms, or tubers, which are modified stems or roots. Their production is hampered by a variety of abiotic and biotic factors, including plant-parasitic nematodes (PPNs) that reduce the yield or quality. This chapter discusses the major PPNs affecting R&T in the subtropical and tropical regions, symptoms and damages caused, long-term management measures to combat the threat posed by nematodes, and future prospects.",
+    "authors": "Kolombia, Y.A.; Fabiyi, O.A.",
+    "date": "2023",
+    "url": "https://hdl.handle.net/10568/132407",
+    "doc_type": "Book Chapter",
+    "cgspace_id": "10568/132407",
+    "geography_hints": [
+      "Nigeria",
+      "Africa",
+      "Western Africa"
+    ]
+  },
+  {
+    "title": "Transgenic expression of Arabidopsis ELONGATION FACTOR-TU RECEPTOR (AtEFR) gene in banana enhances resistance to Banana Xanthomonas Wilt disease",
+    "abstract": "Banana Xanthomonas wilt (BXW) caused by Xanthomonas campestris pv. musacearum (Xcm) is a severe bacterial disease devastating banana production in East and Central Africa, where banana is cultivated as a staple crop. Classical breeding of banana is challenging because the crop is clonally propagated and has limited genetic diversity. Thus, genetic engineering serves as a viable alternative for banana improvement. Several studies have shown that interfamily transfer of the elongation factor Tu receptor gene (AtEFR) from Arabidopsis thaliana to other plant families can increase broad-spectrum resistance against bacterial diseases. In this study, transgenic events of banana cultivar dwarf Cavendish expressing the AtEFR gene were generated and evaluated for resistance against Xcm under greenhouse conditions. The transgenic banana events were responsive to the EF-Tu-derived elf18 peptide and exhibited enhanced resistance to BXW disease compared to non-transgenic control plants. This study suggests that the functionality of AtEFR is retained in banana with the potential of enhancing resistance to BXW disease under field conditions.",
+    "authors": "Adero, M.O.; Tripathi, J.; Oduor, R.; Zipfel, C.; Tripathi, L.",
+    "date": "2023",
+    "url": "https://hdl.handle.net/10568/131804",
+    "doc_type": "Preprint",
+    "cgspace_id": "10568/131804",
+    "geography_hints": [
+      "Kenya",
+      "Africa",
+      "Eastern Africa"
+    ]
+  },
+  {
+    "title": "Elaborating institutional arrangements to better enhance sustainable crop intensification in Uganda: a farmers’ perspective",
+    "abstract": "Weak and inefficient institutional arrangements have been identified as a major cause of the slow pace of agricultural growth in developing countries. Institutions – the humanly devised constraints that shape human interaction – play a significant role in Sustainable Crop Intensification (SCI) in Uganda. This study uses farmers' perceptions to assess institutions and their roles in SCI. We collected data from 135 rice and potato-producing households in Eastern and Southwestern regions of Uganda between January and February 2017. We used Focus Group Discussions to identify and categorize institutional typologies following which we asked households to evaluate several institutional aspects. Overall, institutional contributions to SCI were highly valued by farmers. Based on functional, organizational, and managerial obstacles, farmers perceived formal institutions to be ineffective while they perceived informal farmer's institutions to be the most relevant institutions as they provided financial resources that alleviated constraints to agricultural production and met livelihood needs. We found a lack of coordination between the micro, meso, and macro-level institutions, which then affected their institutional functionality to execute SCI. There is a need for innovation within existing institutions, and a status quo of institutional arrangements that would better respond to smallholders' needs.",
+    "authors": "Pali, P.N.; Tebeka, Y.A.; Schut, Marc; Mangheni, Margaret Najjingo; Wairegi, L.W.I.; Manyong, Victor; Asten, Piet J.A. van",
+    "date": "2023-02",
+    "url": "https://hdl.handle.net/10568/128733",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/128733",
+    "geography_hints": [
+      "Uganda",
+      "Africa",
+      "Eastern Africa"
+    ]
+  },
+  {
+    "title": "Motivational pathways for farmer learning behaviour in the student‐to‐farmer university outreach",
+    "abstract": "In recent times, calls for practical training of agricultural extension workers, who exhibit the right mix of competences for responsiveness to farmer learning needs, have intensified. This comes at the time when there is an increasingly growing desire for more community‐engaged African universities, and as such, making the integration of agricultural students into community outreach services a necessity. However, empirical evidence on whether student‐led outreach and training models adequately respond to the psychological learning needs of host farmers and subsequent motivation of these farmers for learning is lacking. This study uses a structural equation modelling technique on a sample of 283 farmers who had previously participated in the student‐to‐farmer outreach of Gulu University. Results reveal that satisfying farmer learning needs influences intrinsic motivation, formation of learning intentions and farmer learning behaviour. Intrinsic motivation mediates the relationship between satisfying farmer learning needs and the outcome learning behaviour. We conclude that satisfying farmer learning needs is a strong initiator of motivational pathways for farmer learning behaviour in the student‐to‐farmer university outreach. We call for more public financing of university outreach programmes so as to enable not only training for churning out graduates with the right competences of responsiveness to community needs but also fostering creative innovations involving both universities and communities.",
+    "authors": "Kalule, S.W.; Sseguya, H.; Karubanga, G.; Ongeng, D.",
+    "date": "2023-06",
+    "url": "https://hdl.handle.net/10568/129161",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/129161",
+    "geography_hints": [
+      "Uganda",
+      "Africa",
+      "Eastern Africa"
+    ]
+  },
+  {
+    "title": "Transcriptome and metabolome profiling identify factors potentially involved in pro-vitamin A accumulation in cassava landraces",
+    "abstract": "Cassava (Manihot esculenta Crantz) is a predominant food security crop in several developing countries. Its storage roots, rich in carbohydrate, are deficient in essential micronutrients, including provitamin A carotenoids.\r\n\r\nIncreasing carotenoid content in cassava storage roots is important to reduce the incidence of vitamin A deficiency, a public health problem in sub-Saharan Africa. However, cassava improvement advances slowly, mainly due to limited information on the molecular factors influencing β-carotene accumulation in cassava.\r\n\r\nTo address this problem, we performed comparative transcriptomic and untargeted metabolic analyses of roots and leaves of eleven African cassava landraces ranging from white to deep yellow colour, to uncover regulators of carotenoid biosynthesis and accumulation with conserved function in yellow cassava roots.\r\n\r\nSequence analysis confirmed the presence of a mutation, known to influence β-carotene content, in PSY transcripts of deep yellow but not of pale yellow genotypes. We identified genes and metabolites with expression and accumulation levels significantly associated with β-carotene content. Particularly an increased activity of the abscisic acid catabolism pathway together with a reduced amount of L-carnitine, may be related to the carotenoid pathway flux, higher in yellow than in white storage roots. In fact, NCED_3.1 was specifically expressed at a lower level in all yellow genotypes suggesting that it could be a potential target for increasing carotenoid accumulation in cassava.\r\n\r\nThese results expand the knowledge on metabolite compositions and molecular mechanisms influencing carotenoid biosynthesis and accumulation in cassava and provide novel information for biotechnological applications and genetic improvement of cassava with high nutritional values.",
+    "authors": "Olayide, P.; Alexandersson, E.; Tzfadia, O.; Lenman, M.; Gisel, A.; Stavolone, L.",
+    "date": "2023-06",
+    "url": "https://hdl.handle.net/10568/130477",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/130477",
+    "geography_hints": [
+      "Nigeria",
+      "Africa",
+      "Western Africa"
+    ]
+  },
+  {
+    "title": "Feed the Future Nigeria Integrated Agriculture Activity Newsletter Octobery 2023",
+    "abstract": "",
+    "authors": "United States Agency for International Development; International Institute of Tropical Agriculture",
+    "date": "2023-10",
+    "url": "https://hdl.handle.net/10568/132868",
+    "doc_type": "Newsletter",
+    "cgspace_id": "10568/132868",
+    "geography_hints": [
+      "Nigeria",
+      "Africa",
+      "Western Africa"
+    ]
+  },
+  {
+    "title": "Feed the Future: Nigeria Integrated Agriculture Activity Newsletter July 2023",
+    "abstract": "",
+    "authors": "United States Agency for International Development; International Institute of Tropical Agriculture",
+    "date": "2023-07",
+    "url": "https://hdl.handle.net/10568/132866",
+    "doc_type": "Newsletter",
+    "cgspace_id": "10568/132866",
+    "geography_hints": [
+      "Nigeria",
+      "Africa",
+      "Western Africa"
+    ]
+  },
+  {
+    "title": "Morphological, pathological and phylogenetic analyses identify a diverse group of Colletotrichum spp. causing leaf, pod and flower diseases on the orphan legume African yam bean",
+    "abstract": "African yam bean (AYB; Sphenostylis stenocarpa) is an underutilized legume indigenous to Africa with great potential to enhance food security and offer nutritional and medicinal opportunities. However, low grain yield caused by fungal diseases, including pod blight and leaf tip dieback, deters farmers from large‐scale cultivation. To determine the prevalence of fungal diseases affecting leaves, pods and flowers of AYB, a survey was conducted in 2018 and 2019 in major AYB‐growing areas in Nigeria. Leaf tip dieback, flower bud rot and pod blight were the most common symptoms. Morphological and molecular assays were conducted to identify the causal agents of the observed diseases. In all the samples examined, fungi from eight genera were isolated from diseased leaves, buds and pods. Koch's postulates were fulfilled only for fungi belonging to the Colletotrichum genus. Fungi from the other seven genera did not produce disease symptoms in healthy AYB tissues. Several Colletotrichum isolates were characterized by sequencing the rDNA internal transcribed spacer (ITS), glyceraldehyde‐3‐phosphate dehydrogenase, calmodulin and ApMAT loci. A combined phylogenetic analysis revealed four Colletotrichum species: C. siamense, C. theobromicola and C. fructicola, which were recovered from diseased leaves, and C. truncatum, recovered from diseased pods and buds. Our results are useful to gear efforts to develop integrated management strategies to control diseases affecting AYB in Nigeria and elsewhere. Availability of such strategies may stimulate greater AYB cultivation, which can contribute to diet diversification, something repeatedly advocated by a range of stakeholders to increase food security and prosperity of smallholder farmers.",
+    "authors": "Ogunsanya, O.M.; Adebisi, M.A.; Popoola, A.R.; Afolabi, C.G.; Oyatomi, O.; Colgan, R.; Armitage, A.; Thompson, E.; Abberton, M.; Ortega-Beltran, A.",
+    "date": "2024",
+    "url": "https://hdl.handle.net/10568/152327",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/152327",
+    "geography_hints": [
+      "Nigeria",
+      "Africa",
+      "Western Africa"
+    ]
+  },
+  {
+    "title": "Experimental studies of a hybrid peeling process for cassava roots",
+    "abstract": "Peeling is an essential unit operation prior to further processing of cassava. This study presents a experimental studies on functional and proximate parameters of gari and HQCF as affected by peeling methods and cassava cultivars. A newly developed abrasive peeling machine with the dual function of mechanical and mild chemical peeling of cassava roots by recycling of fruit water was used in the peeling process. Peeling of cassava by hands were used as control for this study. The peeling machine utilizes abrasive peeling surface inscribed with indented 0.12 cm stainless steel of 77cm height with 245cm diameter, a concrete based cavity, fruit water recovery tank, water pump and the transmission system. The fruit water was used to soak the cassava tubers before peeling with the machine for 60 minutes. Improved cassava varieties: TMS 30572 and TME 419 were used. High quality cassava flour (HQCF) and gari were produced from the varieties with three different peeling methods: manual, mechanical and mechanical/chemical (hybrid). Results obtained from the HQCF produced from tubers that were peeled manually, mechanically and hybrid peeling using TMS 30572 and TME 419 cassava varieties were: moisture content (10.90–11.36% db), crude protein (0.24–0.35%), carbohydrate content (88.24–88.86%) and ash content (0.09–0.30%) while results of values for bulk density, swelling capacity, WAC, solubility, LGC and pH were (0.55–0.68 g/ml),(854.38–862.38%),(122.5–152.5%),(6.00-6.80%),(5.00–6.67%) and (5.50–6.92) respectively. Cyanide content (1.98-4.04 mg/kg) and OAC (128-144%). The gari’s proximate and functional compositions values were: moisture content (6.00–6.86% db), crude protein (1.32–1.59%), crude fat (0.30–0.52%), crude fibre (2.21–2.58%), CHO (88.02–90.50%) and ash content (0.71–0.82%). The bulk density (0.560–0.675 g/ml), swelling power (827–. 38%), WAC (318.21–435.39%), cyanide content (1.92-3.14 mg/kg) and pH (4.35–5.00). HQCF and gari had proximate and functional properties that compared favorably with those of manual peeling of cassava for the products. The functional properties were well improved by the hybrid and mechanical peeling methods.",
+    "authors": "Adegoke, A.; Oke, M.; Oriola, K.; Adekoyeni, O.; Sanni, L.; Adebowale, A.R.",
+    "date": "2024",
+    "url": "https://hdl.handle.net/10568/162616",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/162616",
+    "geography_hints": [
+      "Nigeria",
+      "Africa",
+      "Western Africa"
+    ]
+  },
+  {
+    "title": "Maize meal (posho) served at selected boarding schools in western Uganda is highly contaminated with aflatoxins",
+    "abstract": "The study aimed to evaluate food handling practices and assess the maize-bean supply chain in selected boarding schools of western Uganda. Additionally, it sought to determine the extent of aflatoxin exposure in the maize-bean meal consumed by students within the age range of 5 to 24. A cross-sectional study was conducted in two districts of Bushenyi and Sheema to gather 95 samples (31 beans, 32 maize flour, and 32 cooked maize flour-posho). In addition, 262 individual interviews were conducted. The findings revealed that only 9.38% of the schools store food as per World Health Organisation standards. The majority of schools (57.9%) purchase maize flour and beans from any stockist with no contractual obligations (random supplier), and all the 32 schools base on visual parameters, especially white colour, and smell to rule out aflatoxin contamination. Maize flour stored on the ground registered significantly (P = 0.0018) higher levels (54.3 ± 10.1 μg/kg) of total aflatoxins than that stored on a raised platform (14.7 ± 2.6 μg/kg). Likewise, the supplier significantly influenced total aflatoxins levels (P = 0.0064), with higher levels (44.6 ± 8.0 μg/kg) detected in maize flour supplied by a random supplier than a pre-qualified one (14.7 ± 2.6 μg/kg). Given the low levels (1.3 to 2.8 μg/kg), which are far less than the Maximum Tolerated Limit (MTL) of 10 μg/kg, aflatoxins do not pose a significant problem in beans. Aflatoxins exposure in younger children (5-12 years) was higher (61.5 ng/kg bw/day) than in older ones (13-24 years; 41.5 ng/kg bw/day). Similarly, the risk of developing hepatocellular carcinoma was greater in younger children (1.84 cases per 100,000 people) compared to older ones (1.24 cases per 100,000 people). The findings underscore an urgent need to formulate guidelines for procurement, storage, and food handling in schools, alongside intensifying inspection programmes for food handling. Additionally, there is need to expand the research scope by incorporating a greater number of schools from varied geographical areas within Uganda, while rigorously monitoring the entirety of the food supply chain.",
+    "authors": "Oyesigye, E.; Nkurunungi, J.B.; Mlahagwa, W.; Raymond, A.; Mahuku, G.; Medina, A.",
+    "date": "2024",
+    "url": "https://hdl.handle.net/10568/160038",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/160038",
+    "geography_hints": [
+      "Uganda",
+      "Africa",
+      "Eastern Africa"
+    ]
+  },
+  {
+    "title": "Insecticide contamination in organic agriculture: evidence from a long-term farming systems comparisons trial",
+    "abstract": "Synthetic pesticides applied in conventional agriculture to control pests tend to compromise ecosystem services, and their residues may contaminate organic agriculture. To understand the significance of this contamination, also in small-scale farming systems in sub-Saharan Africa, quantitative data is required. Therefore, we compared synthetic insecticide and botanical/biopesticide residues in conventional and organic agricultural production systems after nine years of continuous cultivation of a maize-based crop rotation system at two sites in Kenya. Our results show high detectable concentrations of synthetic insecticide residues (imidacloprid, acetamiprid, chlorpyrifos, and chlorantraniliprole) in conventional plant produce and soil. Furthermore, the organophosphate chlorpyrifos was detected at concentrations above European Union Maximum Residue Limits (MRL) for plant produce, indicating potential risks for human health. Additionally, we detected imidacloprid, acetamiprid, chlorpyrifos, and chlorantraniliprole concentrations in the soil, indicating potential environmental harm. No residues of biopesticide/botanicals were detected in any of the production systems. However, we detected imidacloprid and chlorantraniliprole in organic plots. The findings indicate that the MRLs can be crossed even if synthetic insecticides are applied according to or below the recommended rates on the conventional plots. Thus, synthetic insecticides potentially risk human health and the environment, while botanicals and bio-pesticides represent a safe alternative.",
+    "authors": "Kampermann, I.; Bautze, D.; Mapili, M.; Musyoka, M.W.; Karanja, E.; Fiaboe, K.; Irungu, J.; Adamtey, N.",
+    "date": "2024-03",
+    "url": "https://hdl.handle.net/10568/139889",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/139889",
+    "geography_hints": [
+      "Kenya",
+      "Africa",
+      "Eastern Africa"
+    ]
+  },
+  {
+    "title": "Efects of silver nitrate on in vitro development of yam (Dioscorea rotundata Poir) plants",
+    "abstract": "Yam (Dioscorea spp.) production is constrained by many factors including insufficient planting materials, diseases, and  climate change. Plant tissue culture (PTC) offers practical solutions for rapid propagation of many plant types. However,  ethylene buildup during PTC is a major challenge to in vitro plant growth and development. This study examined the effects  of silver nitrate (AgNO3), a known ethylene action blocker on the in vitro growth and development of four accessions of  D. rotundata in a 7*6*4 factorial outline in a completely randomized design. Nodal explants (700) of four accessions (TDr  3134, TDr 2745, TDr 3291, and TDr 2859) were transferred to culture media containing Murashige and Skoog basal salts  with vitamins including different concentrations of AgNO3 (0 to 6.0 mg L−1). The numbers of leaves, shoots, and roots,  plant heights, and length of roots per explant were recorded weekly until week 6. After the 6th week, 420 in vitro plantlets  with well-established roots were selected for acclimatization. The responses of the yam plants to AgNO3 were genotype  dependent, with specific optimal concentration for different plant parts. Addition of 1.0 mg L−1 AgNO3 to the culture medium \nsignificantly improved in vitro growth and development of the shoots, while 2.0 mg L−1 AgNO3 significantly influenced root  formation. There were no negative residual effects of AgNO3 on the D. rotundata plantlets as more than 85% of the accessions  survived during acclimatization, with good plant vigor. This study demonstrates the effectiveness of silver nitrate (AgNO3)  in enhancing the morphogenesis of D. rotundata.",
+    "authors": "Oluwasegun, R.Y.; Uchendu, E.E.; Adeyemi, A.; Abberton, M.",
+    "date": "2024",
+    "url": "https://hdl.handle.net/10568/159803",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/159803",
+    "geography_hints": [
+      "Nigeria",
+      "Africa",
+      "Western Africa"
+    ]
+  },
+  {
+    "title": "Why contexts matter for gender equal outcomes in research-based plant breeding: the case of maize in Nigeria",
+    "abstract": "Maize is an important crop for food security and livelihood improvement in Nigeria and elsewhere in Africa. Maize varieties that enable farmers to increase their productivity and profitability, for example, can help them achieve these development outcomes. Contextual factors shape women’s and men’s preferences for specific maize traits and varieties, thus influencing varietal uptake and the contribution varieties make towards securing people’s livelihoods. Understanding contextual factors is paramount to pursuing gender equal outcomes within research-based maize breeding. We review literature on the demand for and access to improved maize varieties in Nigeria by using a framework that helps breeding programs become more gender-responsive and, thereby, enhance their impact via increased uptake. Findings show that attention towards the role of social norms in shaping the contexts where women and men maize farmers negotiate production-related decisions, form trait preferences, and access improved maize varieties has been limited within breeding programs, while ethnobotanical approaches are absent. To boost gender equal outcomes, maize breeding programs should identify the reasons motivating women’s and men’s varietal preferences and their different capacities to access improved varieties with the suited characteristics. To pursue this objective, gender-based Indigenous knowledge should be integrated since the first stages of varietal development.",
+    "authors": "Yami, M.; Cavicchioli, M.; Cole, S. M.; Assfaw Wossen, T.; Abdoulaye, T.",
+    "date": "2024",
+    "url": "https://hdl.handle.net/10568/159522",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/159522",
+    "geography_hints": [
+      "Nigeria",
+      "Africa",
+      "Western Africa"
+    ]
+  },
+  {
+    "title": "High throughput propagation materials for evaluating the response of yam to nematode infestation under controlled environment",
+    "abstract": "Yam is a vegetatively propagated crop generally multiplied using a portion (sett) of the tuber, which represents 30% of the cost of production. This study evaluated four propagation materials of yam,(i) vine seedlings from aeroponic system (VS),(ii) seedlings from semi autotrophic hydroponics (SAH),(iii) mini-tubers, and (iv) minisetts for their suitability for evaluating resistance of yams to nematodes. Two recently released yam genotypes, TDr 95/19177 and TDr 89/02665, were challenged with Meloidogyne incognita and Scutellonema bradys. Plastic pots were arranged in a screenhouse following a completely randomized design with twelve replicates. Plants were inoculated six weeks after planting with 5,000 eggs of M. incognita or 5,000 mixed individuals of S. bradys. Data were collected during vegetative growth, at harvest, and during storage. Vine length, number of leaves, and number of vines were not significantly different at the vegetative growth stage (P˃ 0.05). At harvest, the nematodes had significant effects on vine length, fresh and dry shoot weight, and tuber diameter (P< 0.05). After storage, there were significant losses in tubers weight of 61.8% and 43.3%, respectively, for S. bradys and M. incognita inoculated plants (P< 0.05). Damage indexes for all the planting materials were not significantly different, however, nematode recovery was less in VS and SAH plants compared to minisetts and mini-tuber plants. Mini-tubers and minisetts are apparently more reliable as planting materials to be used when screening yam genotypes.",
+    "authors": "Fassinou, C.G.; Maroya, N.G.; Claudius-Cole, A.O.; Akoroda, M.O.",
+    "date": "2024",
+    "url": "https://hdl.handle.net/10568/175201",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/175201",
+    "geography_hints": [
+      "Africa",
+      "Western Africa"
+    ]
+  },
+  {
+    "title": "National food consumption and micronutrient survey 2021: key findings",
+    "abstract": "",
+    "authors": "Federal Government of Nigeria; International Institute of Tropical Agriculture",
+    "date": "2024-01",
+    "url": "https://hdl.handle.net/10568/144194",
+    "doc_type": "Book",
+    "cgspace_id": "10568/144194",
+    "geography_hints": [
+      "Nigeria",
+      "Africa",
+      "Western Africa"
+    ]
+  },
+  {
+    "title": "National food consumption and micronutrient survey 2021: final report",
+    "abstract": "The last National Food Consumption and Micronutrient Survey (NFCMS) was undertaken about 20 years ago in 2001 (Maziya-Dixon, et al., 2004; Nigeria Food Consumption and Nutrition Survey 2001- 2003, IITA, https://hdl.handle.net/10568/100010). The findings of that study likely no longer represent the current micronutrient status or dietary consumption patterns of the Nigerian population. This lack of recent and reliable information presents several challenges, both in terms of reviewing ongoing programmes and in informing the development of new guidance and policies. Updated information on the population’s micronutrient status and dietary intakes is required for informed, evidenced-based decisions about current and future food, nutrition, and agriculture programming and policy making in Nigeria.\nDuring a high-level national nutrition data stakeholder workshop in Abuja in July 2017, stakeholders agreed that a national survey to collect information on dietary intake and micronutrient status was needed. Subsequently, in January 2018, a NFCMS methodology workshop was held in Abuja, during which agreements were reached on the scope and level of representativeness for the survey, and key decisions pertaining to the survey governance structure. In this light, UNICEF was nominated as the fund management agency for the survey, and lITA as the lead implementing agency.",
+    "authors": "Federal Government of Nigeria; International Institute of Tropical Agriculture",
+    "date": "2024-01",
+    "url": "https://hdl.handle.net/10568/144195",
+    "doc_type": "Book",
+    "cgspace_id": "10568/144195",
+    "geography_hints": [
+      "Nigeria",
+      "Africa",
+      "Western Africa"
+    ]
+  },
+  {
+    "title": "Development, Chemical Composition, Textural Characterization and Sensory Acceptability of Oyster or Big Cup Mushroom Incorporated Chicken Meatloaves",
+    "abstract": "This study examined chemical and textural attributes as well as sensory acceptability of chicken and mushroom (oyster and big cup) meatloaves. Simplex lattice design was used to create eight formulations of chicken-oyster mushroom (COM) and chicken-big cup mushroom (CBM), respectively. The samples were analyzed for proximate and mineral composition, crust and crumb color, pH, and texture. The optimized meatloaf samples were subjected to sensory evaluation. The optimized chicken-mushroom ratios were determined to be 83.82% chicken meat and 16.18% oyster mushroom, and 84.78% chicken meat and 15.22% big cup mushroom. Chicken-oyster meatloaf was rated as more acceptable than chicken-big cup meatloaf and control samples in all aspects by sensory panelists. There was no significant difference (p > 0.05) between the sensory attributes, except for aroma (p < 0.05). The study concluded that inclusion of oyster or big cup mushroom in chicken meatloaf had significant influence (p < 0.05) on nutritional, color, pH, and texture characteristics of chicken meatloaf.",
+    "authors": "Olabinke, C.K.; Adegoke, A.F.; Sobukola, O.P.; Fafiolu, A.O.; Adebowale, A.A.",
+    "date": "2024",
+    "url": "https://hdl.handle.net/10568/160606",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/160606",
+    "geography_hints": [
+      "Nigeria",
+      "Africa",
+      "Western Africa"
+    ]
+  },
+  {
+    "title": "Strategies for feeding tilapia in smallholder aquaculture systems: a study of aquaculture feed access and availability in two districts of Northern Province, Zambia",
+    "abstract": "Aquaculture contributes to agricultural development, economic growth, and poverty reduction initiatives in Zambia. In northern and rural regions of the country, development requires improvements to the management of local and farm-generated inputs. Fish farmers have limited market access and purchasing power, which restricts access to commercial inputs, such as formulated feeds and chemical fertilizers. Instead, farmers adopt integrated-agriculture-aquaculture (IAA) practices, whereby on-farm resources supply essential inputs. Research is limited regarding local systems of resource management, and this hinders development of innovations for improving efficiency. This mixed-methods study explored local patterns of resource utilization. Smallholders (n = 63) participated in surveys and interviews regarding resource management. A series of quantitative analyses, including descriptive statistics, principal component analyses (PCA), and multinomial logistic regression (logit) models, identified relationships between these resources, household livelihood, and system productivity. Qualitative analyses explored farmer perceptions regarding seasonal resource availability. Results suggested that livestock manure, homemade feeds comprising maize and soybean, garden residues, and kitchen wastes were the most frequently selected inputs. Logit models of feeding intensity found that income, proximity to Luwingu Town, experience in aquaculture, and access to extension services were key household resources. High-intensity feeding strategies incorporated commercial feeds, chemical fertilizers, as well as home-made feeds containing a wide diversity of both high- and low-quality ingredients. Low-intensity feeding strategies incorporated only farm waste and termites. Potential innovations that may improve system performance in resource poor contexts are considered and recommendations for additional research are offered.",
+    "authors": "Johnson, J. W.; Jacobson, M.; Cole, S. M.; Kaminski, A. M.; Karsten, H.; Syapwaya, M.; Stauffer, J.; Jensen, L.; Lundeba, M.",
+    "date": "2024",
+    "url": "https://hdl.handle.net/10568/159982",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/159982",
+    "geography_hints": [
+      "Zambia",
+      "Africa",
+      "Southern Africa"
+    ]
+  },
+  {
+    "title": "Explaining variation in cassava root yield response to fertiliser under smallholder farming conditions using digital soil maps",
+    "abstract": "Heterogeneity in soil fertility conditions impacts fertiliser use efficiency in smallholder cropping systems in sub-Saharan Africa. A study was performed to generate insights in nutrient limitations for cassava (Manihot esculenta Crantz.). We conducted 627 nutrient omission trials over three years in South East (SEN) and South West Nigeria (SWN), and in the Southern (TSZ) and Lake Zone of Tanzania (TLZ) to quantify variation in root yield responses to N, P and K, and relate these to digital soil maps and weather information. Mean fresh root yields were 30, 21, 13 and 15 Mg ha-1 with an application of 150–40-180 kg N-P-K ha-1 and 20, 16, 11 and 14 Mg ha-1 without nutrient addition in the four study areas, respectively. Root yield response to nutrients was largest in SEN, with mean root yield reductions of 5.7, 3.3 and 2.7 Mg ha-1 due to omission of N, P and K, respectively. Differences in yield and yield response to fertiliser between study areas were governed by rainfall conditions, which were most favourable in SEN, and least favourable in the TLZ. Within study areas, large spatial variation was observed, while temporal variation was limited. Spatial variation in yield response was largest in SEN with standard de-viations (sd) of 4.2 Mg ha-1 for K, 3.2 Mg ha-1 for P and 3.0 Mg ha-1 for N, opposite to the order of the mean yield responses. More than 75% of the variation in root yield response was observed at < 10 km scale, and close to 50% at < 1 km scale. Large variation (sd = 1.8 – 2.5 Mg ha-1) in response to N was also observed in all other study areas, and to K in SWN (sd = 2.4 Mg ha-1) and in the TSZ (sd = 2.1 Mg ha-1). Responses to N and P were weakly but significantly correlated to organic C, total N and clay contents, while response to K was correlated to extractable cations and clay content. Random forest models explained 16 – 59% of the variation in nutrient responses within study areas using digital soil maps and weather information. Our results confirm that responses to fertiliser nutrients vary in smallholder systems at a very local scale, and patterns vary between study areas and between individual nutrients. Digital soil maps and weather information can explain some of this variation and could support the development of site-specific recommendations at an appropriate scale. However, digital soil map data are unlikely sufficient to provide reliable advice at farm or plot level. Further research is needed to evaluate the capability of other factors, particularly local indicators of soil fertility, crop productivity and crop management intensity to complement digital soil maps in the development of field-specific fertiliser advice.",
+    "authors": "Masunga, R. H.; Chernet, M.; Ezui, K. S.; Mlay, P. D.; Olojede, A. O.; Olowokere, F.; Busari, M.; Hauser, M.; Kreye, C.; Baijukya, F.; Merckx, R .; Pypers, P .",
+    "date": "2024",
+    "url": "https://hdl.handle.net/10568/159964",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/159964",
+    "geography_hints": [
+      "Nigeria",
+      "Tanzania",
+      "Africa",
+      "Eastern Africa",
+      "Western Africa"
+    ]
+  },
+  {
+    "title": "Genetic diversity, linkage disequilibrium, and population structure in a common bean reference collection",
+    "abstract": "An in-depth understanding of the extent and pattern of genetic diversity and population structure in crop populations is of paramount importance for any crop improvement program to efficiently promote the translation of genetic diversity into genetic gain. A reference collection of 150 common bean genotypes selected from the International Center for Tropical Agriculture’s global core collection was evaluated using single-nucleotide polymorphism (SNP) markers to quantify the amount of genetic diversity, linkage disequilibrium, and population structure. The cultivars and landraces of the collection were diverse and originated from 14 countries, and wild accessions were used as controls for each gene pool. The collection was genotyped using an SNP array, generating a total of 5398 locus calls distributed across the entire bean genome. The SNP data quality was checked, and two datasets were generated. The first dataset (Dataset_1) comprised a set of 5108 SNPs and 150 genotypes after filtering for 10% missing alleles and an MAF < 0.05. The second dataset (Dataset_2) comprised a set of 2300 SNPs that remained after removing any null-allele SNPs and LD pruning for a criterion of r2 < 0.2. Dataset_1 was used for a principal coordinate analysis (PCoA), phylogenetic relationship determination, an analysis of molecular variance (AMOVA), and a discriminant analysis of principal components. Dataset_2 was used for a population structure analysis using STRUCTURE software and is proposed for a genome-wide association study (GWAS). The population structure analysis split the reference collection into two subpopulations according to an Andean or Mesoamerican gene pool. The Mesoamerican populations displayed higher genetic differentiation and tended to split into more groups that were somewhat aligned with common bean races. Andean beans were characterized by a larger average LD but lower LD percentage, a small average genetic distance between members of the population, and a higher major allele frequency, which suggested narrower genetic diversity compared to the Mesoamerican gene pool. In conclusion, the results indicated the presence of high genetic diversity, which is useful for a GWAS. However, the presence of significant linkage disequilibrium requires that genetic distance be considered as a co-factor for any further genetic studies. Overall, the molecular variation observed in the genotypes shows that this reference collection is valuable as a genebank-derived diversity panel which is useful for marker trait association studies.",
+    "authors": "Ambachew, D.; Londono, J.M.; Castillo, N.R.; Asfaw, A.; Blair, M.W.",
+    "date": "2024",
+    "url": "https://hdl.handle.net/10568/152494",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/152494",
+    "geography_hints": [
+      "Colombia",
+      "Americas"
+    ]
+  },
+  {
+    "title": "Canopy structure influence the critical period for weed removal of three cassava (Manihot esculenta Crantz) varieties in Zambia",
+    "abstract": "Cassava (Manihot esculenta Crantz) is an important crop for food, feed and income security. Cassava productivity is limited by poor weed management. Field trials were conducted in Zambia to determine the Critical Period for Weed Removal (CPWR) on 3 cassava varieties (Chila, Mweru and Nalumino), with contrasting canopy structure, using a split-plot design in randomized blocks. Nine weeding treatments, i.e., control, 21, 42, 63, 84, 105, 126, 147, 168 days after planting (DAP), were applied on two sets of weeding regimes. In one set, weeds were allowed to grow followed by a weed free period while in the second, plots were kept weed-free followed by a period of natural weed infestation at Kabangwe and Kaoma. Cassava varietal\nmeans were in the order Chila (10,199 kg ha-1) > Nalumino (9,047.6 kg ha-1) > Mweru (8,429 kg ha-1). Chila, a branching cassava variety, significantly out-yielded (P < 0.05) other varieties. Fresh cassava root yields were higher at Kabangwe (23,270 kg ha-1) compared to Kaoma (21,347 kg ha-1). The CPWR was determined to be 60 DAP (48-73 DAP), at both sites. Yield differences among weeding treatment ranged between 18% and 75%. The determined CPWR is a determinant of weed management strategy for branching cassava varieties. The branching canopy architecture smothered weeds and hence is considered an important cassava varietal attribute. The yields\nin the current study are doubled the regional yield average of 8000 kg ha-1 and four times the Zambian average of 5000 kg ha-1.",
+    "authors": "Nzunda, J.; Nhamo, N.; Chikoye, D.; Sibuga, K.; Ntawuruhunga, P.",
+    "date": "2024",
+    "url": "https://hdl.handle.net/10568/159751",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/159751",
+    "geography_hints": [
+      "Zambia",
+      "Africa",
+      "Southern Africa"
+    ]
+  },
+  {
+    "title": "Associations between urbanization and avian communities in the Afrotropics: evidence from taxonomic, functional and phylogenetic diversity",
+    "abstract": "Urbanization negatively affects biodiversity worldwide, with the rapidly urbanizing Afrotropical area being understudied. Furthermore, most previous studies investigating this topic focused on taxonomic diversity while recent findings have highlighted the need to incorporate complementary diversity metrics. Thus, this study investigated how urbanization affects bird taxonomic, functional, and phylogenetic diversity in Nigeria, a country with one of the fastest rates of urbanization in the world. We conducted bird censuses at 400 points organized across eight paired comparisons (urban vs non-urban habitats), vegetation zones (rainforest vs savannah), and seasons (dry vs wet). Of the total 237 bird species recorded, 65 % were never encountered in urban areas, suggesting the negative effect of urbanization that was also supported by our statistical analyses. Taxonomic diversity was significantly higher in non-urban than urban habitats. This contrasted with the result on functional and phylogenetic diversity, which was higher in the urban than non-urban habitat. These relationships were similar across seasons, but more intense in the rainforest, revealing that birds in this vegetation zone are more vulnerable to urbanization than their savannah counterparts. We also found that water cover significantly promoted all avian diversity metrics analyzed during the dry season independently of urbanization. In contrast, canopy and bush cover mediated the effects of urbanization on some diversity components (i.e., functional and phylogenetic diversity). Our results highlight the significance of incorporating spatiotemporal patterns in related studies and provide much needed information for city planners and other urban stakeholders in the Afrotropics.",
+    "authors": "Awoyemi, A.G.; Barshep, Y.; Manu, S.A.; Ibanez-Alamo, J.D.",
+    "date": "2024-10",
+    "url": "https://hdl.handle.net/10568/163333",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/163333",
+    "geography_hints": [
+      "Nigeria",
+      "Africa",
+      "Western Africa"
+    ]
+  },
+  {
+    "title": "Can agroforestry provide a future for cocoa? Implications for policy and practice",
+    "abstract": "Climate change is threatening cocoa production in Ghana, the world’s second largest cocoa exporter. Yet, as we have shown in this book, the impacts of climate change must be understood in the context of the multiple socioeconomic and biophysical pressures facing cocoa farmers, including the conversion of farms for other land uses, increasing hired labor costs as well as pests and diseases. This final chapter summarizes the book’s overall findings on cocoa agroforestry as climate change adap-tion and points to ways forward in terms of policy, practice and research. Our findings suggest that a nuanced view of farmers, agroecosystems and sites is necessary and emphasize the need to study shade tree species and species diversity, in addition to shade levels, to optimize the sustain-ability of cocoa farming. We further suggest that it may not be possible to sustainably grow cocoa in marginal regions of the cocoa belt, where yields are lower and where agroforestry may be unable to mitigate the negative impacts of the adverse climate. Finally, we point to the impor-tance of considering rights and access to trees, land, extension services and resources, and call for more multidisciplinary research on differently situated farmers’ opportunities and needs.",
+    "authors": "Olwig, M.F.; Asare, R.; Vaast, P.; Bosselmann, A.S.",
+    "date": "2024",
+    "url": "https://hdl.handle.net/10568/140504",
+    "doc_type": "Book Chapter",
+    "cgspace_id": "10568/140504",
+    "geography_hints": [
+      "Ghana",
+      "Africa",
+      "Western Africa"
+    ]
+  },
+  {
+    "title": "Household economics of cocoa agroforestry: costs and benefits",
+    "abstract": "Current research suggests that cocoa agroforestry systems could offer stable yields, additional benefits and income from shade trees, despite potential added costs, such as from the purchase of insecticides. There is a paucity of profitability studies of different cocoa agroforestry systems. Only few of them go beyond a narrow focus on cocoa yields to model the entire agroforestry system and thus do not advance our understanding of the socio-economic value of other ecosystem goods. Based on survey data covering a thousand cocoa plots and group interviews with cocoa farmers, we explore the costs and benefits at the household level of including trees in cocoa systems. Comparing low and medium tree\ndiversity systems, we find that income from cocoa beans, timber and fruit trees are higher and labour costs are lower in plots with medium diversity, while insecticide costs are lower on low-diversity plots. Overall, net benefits were higher on cocoa plots with higher tree diversity. Thus, cocoa agroforestry systems offer cost-reduction and income-improving advantages. Since cocoa systems vary among different agro-ecological zones in Ghana, we recommend that interventions aimed at increasing tree diversity consider the specific management practices of each farming household and the location in question.",
+    "authors": "Boadi, S.A.; Bosselmann, A.S.; Owusu, K.; Asare, R.; Olwig, M.F.",
+    "date": "2024",
+    "url": "https://hdl.handle.net/10568/140522",
+    "doc_type": "Book Chapter",
+    "cgspace_id": "10568/140522",
+    "geography_hints": [
+      "Ghana",
+      "Africa",
+      "Western Africa"
+    ]
+  },
+  {
+    "title": "Do farmers' perceptions and socio-economic factors drive cocoa agroforestry and sustainable soil carbon management practices in West Africa?",
+    "abstract": "We evaluated the farmer’s local knowledge and perceptions of sustainable cocoa agroforestry and sustainable soil carbon management in Ghana and Côte d'Ivoire using a social survey research methodology. We employed in-depth interviewing and focus group discussions to solicit information from identified key stakeholders in the cocoa supply chain focusing on the perception of sustainable cocoa agroforestry and soil carbon management. Our results revealed that about 83% and 50.5% of smallholder cocoa farmers from Côte d'Ivoire and Ghana respectively practiced agroforestry on their farms. The respondents, however, had limited knowledge about the term agroforestry and were also not very much aware of soil carbon management. Also, about 53% and 22% of the respondents from Côte d'Ivoire and Ghana perceived agroforestry practice as better than practicing cocoa monoculture. The results further revealed that most of the cocoa farmers in these study areas had limited knowledge of the approaches or strategies to achieve sustainable cocoa agroforestry and soil carbon management on their farms. At the same time, the industry’s stakeholders had different perceptions about the approaches or strategies to achieve these. Our results also revealed that educational level was the only socio-economic factor that influenced the farmer’s awareness of agroforestry and soil organic carbon. This study thus suggests the need for appropriate training and education for smallholder cocoa farmers, and harmonization of the understanding among different stakeholder groups along the cocoa supply chain of common strategies to adopt to achieve sustainable cocoa production that addresses low productivity, biodiversity loss and carbon emission within the smallholder cocoa production system in West Africa.",
+    "authors": "Kumah, F.J.; Kouabenan, A.; Gebrekirstos, A.; Kone, D.; Adjei-Nsiah, S.",
+    "date": "2024",
+    "url": "https://hdl.handle.net/10568/139892",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/139892",
+    "geography_hints": [
+      "Côte d'Ivoire",
+      "Ghana",
+      "Africa",
+      "Western Africa"
+    ]
+  },
+  {
+    "title": "Efficacy of two different microbial consortia on salinity tolerance in chickpea: an in‑planta evaluation on biochemical, histochemical, and genomic aspects",
+    "abstract": "This study aimed to identify and characterize actinobacteria and rhizobia with plant growth-promoting (PGP) traits from chickpea plants. Out of 275 isolated bacteria, 25 actinobacteria and 5 chickpea rhizobia showed 1-aminocyclopropane-1-carboxylate deaminase (ACCd) activity. Selected chickpea rhizobia were tested for their nodulating capacity under sterile and non-sterile soil conditions. Further screening on salinity and PGP traits identified three promising isolates: Nocardiopsis alba KG13, Sinorhizobium meliloti KGCR17, and Bacillus safensis KGCR11. These three isolates were analyzed for their compatibility and made into a consortium (Consortium 1). This along with another consortium made from our salinity-tolerant lab strains Chryseobacterium indologenes ICKM4 and Stenotrophomonas maltophilia ICKM15 (Consortium 2) was compared in planta studies. Trials revealed that Consortium 2 showed significant (p < 0.05) tolerance and on above-ground, below-ground traits and yield components than Consortium 1. Moreover, both consortia induced nodulation in saline-stressed plants, alleviated electrolyte leakage (2.3 vs. 0.4 in ICCV 2; 1.8 vs. 0.6 in JG 11), and increased chlorophyll content. Histochemical staining indicated reduced oxidative stress and lipid peroxidation in consortium-treated plants under salinity stress. Further, gene expression studies revealed mixed patterns, with up-regulation of antioxidant and transporter genes observed in consortium-treated plants, particularly in Consortium 2. Overall, Consortium 2 showed better gene expression levels for antioxidant and transporter genes, indicating its superior efficacy in mitigating salinity stress in chickpea plants. This study provides valuable insights into the potential use of these microbial isolates in improving chickpea productivity by enhancing salinity tolerance.",
+    "authors": "Sathya, A.; Rehman, V.; Srinivas, V.; Kudapa, H.; Gopalakrishnan, S.",
+    "date": "2024",
+    "url": "https://hdl.handle.net/10568/162693",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/162693",
+    "geography_hints": [
+      "India",
+      "Asia"
+    ]
+  },
+  {
+    "title": "Citizen science mitigates the lack of distributional data on Nigerian birds",
+    "abstract": "Citizen science projects are expanding globally, with the African continent, particularly Nigeria, registering significant growth. Here, we document and analyse novel operations of the Nigerian Bird Atlas Project (NIBAP), 2015--2022. This project has employed the use of ornithologists, mainly trained at the A. P. Leventis Ornithological Research Institute (APLORI) located in Jos, Nigeria, and its 28 bird clubs established across Nigeria to enlist 827 bird enthusiasts that contribute regular and near real-time data about bird distribution and relative abundance in the country. Interestingly, NiBAP has recorded about 75% of the bird species known from Nigeria in only about 50% of Nigeria's total surface area, including 39 nationally threatened species. The Common Bulbul *Pycnonotus barbatus*, Laughing Dove *Spilopelia senegalensis*, and Grey-backed Camaroptera *Camaroptera brevicaudata* were the most commonly recorded species, while Amurum Forest Reserve, Rennajj Fish Farm, and Obudu Cattle Ranch were the most surveyed sites during the period. Thus, our approach reveals how to increase involvement of nature enthusiasts, ornithologists, and a regional research institute to build local capacity and contribute rich information necessary to alleviate the lack of distributional data about Afrotropical avifauna. We strongly recommend our approach to boost other citizen science projects across Africa and beyond to address the huge lack of biodiversity data, create public awareness, and foster conservation education.",
+    "authors": "Tende, T.; Iniunam, I.; Ivande, S.T.; Awoyemi, A.G.; Danmallam, B.A.; Ringim, A.S.; Bako, L.A.; Ramzy, F.J.; Kazeh, N.W.; Izang, A.I.; Kumdet, P.S.; Ibrahim, J.I.; Haruna, M.A.; Eyos, K.; Iki, E.D.; Chaskda, A.A.; Ottosson, U.",
+    "date": "2024-04",
+    "url": "https://hdl.handle.net/10568/141643",
+    "doc_type": "Journal Article",
+    "cgspace_id": "10568/141643",
+    "geography_hints": [
+      "Nigeria",
+      "Africa",
+      "Western Africa"
+    ]
+  }
+]

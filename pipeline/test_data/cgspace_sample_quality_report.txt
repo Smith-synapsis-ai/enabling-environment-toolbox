@@ -1,0 +1,40 @@
+========================================================================
+CGSpace XLSX Import — Data Quality Report
+========================================================================
+
+1. SUMMARY
+   Files processed:        2
+   Total records output:    100
+   Records with title:      100 (100.0%)
+   Records with abstract:   87 (87.0%)
+
+2. PER-YEAR BREAKDOWN
+   Year      Rows  Unique   Dupes  Title%  Abstr% Author%    URL%
+   --------------------------------------------------------------
+   2023       105      50      55 100.0%  86.0% 100.0% 100.0%
+   2024       156      50     106 100.0%  88.0% 100.0% 100.0%
+
+3. FIELD COMPLETENESS (across all output records)
+   title                    100 / 100     (100.0%)
+   abstract                  87 / 100     (87.0%)
+   authors                  100 / 100     (100.0%)
+   date                     100 / 100     (100.0%)
+   url                      100 / 100     (100.0%)
+   doc_type                 100 / 100     (100.0%)
+   cgspace_id               100 / 100     (100.0%)
+   geography_hints           97 / 100     (97.0%)
+
+4. DEDUPLICATION
+   Cross-file duplicates removed: 0
+   Within-file duplicates removed: 161
+
+5. TOP DOCUMENT TYPES
+   Journal Article                                        75
+   Newsletter                                              9
+   Book Chapter                                            8
+   Preprint                                                3
+   Book                                                    3
+   Equation                                                1
+   Report                                                  1
+
+========================================================================
