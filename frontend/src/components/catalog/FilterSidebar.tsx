@@ -60,7 +60,7 @@ export default function FilterSidebar({
           onClick={onClear}
           className="flex items-center gap-1.5 text-sm text-cgiar-green hover:text-cgiar-dark mb-4 font-medium transition-colors"
         >
-          <XCircle size={14} />
+          <XCircle size={14} aria-hidden="true" />
           Clear all filters
         </button>
       )}

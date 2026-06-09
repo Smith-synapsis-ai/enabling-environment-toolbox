@@ -98,10 +98,10 @@ export default function PulseSurvey({ hasSearched, hasViewedTool }: PulseSurveyP
           {/* Dismiss button */}
           <button
             onClick={handleDismiss}
-            className="absolute top-3 right-4 text-white/50 hover:text-white transition-colors"
+            className="absolute top-3 right-4 text-white/70 hover:text-white transition-colors"
             aria-label="Dismiss survey"
           >
-            <X size={18} />
+            <X size={18} aria-hidden="true" />
           </button>
 
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-8">
@@ -132,7 +132,7 @@ export default function PulseSurvey({ hasSearched, hasViewedTool }: PulseSurveyP
                         </button>
                       ))}
                     </div>
-                    <p className="text-white/40 text-xs mt-1">
+                    <p className="text-white/70 text-xs mt-1">
                       1 = Not at all &middot; 5 = Absolutely
                     </p>
                   </div>

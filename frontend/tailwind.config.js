@@ -8,10 +8,15 @@ export default {
     extend: {
       colors: {
         'cgiar': {
-          'dark': '#1B3B2F',
+          'dark': '#033529',
           'green': '#2D5A3D',
           'accent': '#4CAF50',
           'light': '#F5F5F5',
+        },
+        's4i': {
+          'purple': '#D685FF',
+          'purple-deep': '#7904B4',
+          'purple-light': '#DD9AFF',
         },
       },
       fontFamily: {

@@ -190,11 +190,11 @@ export default function TutorialPage() {
           </div>
 
           <div className="flex items-center gap-3 mb-4">
-            <Video size={28} className="text-cgiar-accent" />
+            <Video size={28} className="text-cgiar-accent" aria-hidden="true" />
             <div className="w-20 h-20 bg-cgiar-accent/20 hover:bg-cgiar-accent/30 rounded-full flex items-center justify-center transition-colors cursor-pointer">
-              <Play size={36} className="text-white ml-1" />
+              <Play size={36} className="text-white ml-1" aria-hidden="true" />
             </div>
-            <Video size={28} className="text-cgiar-accent" />
+            <Video size={28} className="text-cgiar-accent" aria-hidden="true" />
           </div>
           <p className="text-white font-semibold text-lg">
             Tutorial Video Coming Soon
@@ -209,7 +209,7 @@ export default function TutorialPage() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 bg-cgiar-accent/10 text-cgiar-accent rounded-full px-4 py-1.5 text-sm font-medium mb-4">
-            <MessageSquare size={16} />
+            <MessageSquare size={16} aria-hidden="true" />
             Method 1
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
@@ -228,7 +228,7 @@ export default function TutorialPage() {
               className="flex gap-5 bg-white rounded-xl p-6 shadow-sm border border-gray-100"
             >
               <div className="flex-shrink-0 w-12 h-12 bg-cgiar-accent/10 rounded-lg flex items-center justify-center">
-                <step.icon size={24} className="text-cgiar-accent" />
+                <step.icon size={24} className="text-cgiar-accent" aria-hidden="true" />
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-1">
@@ -248,7 +248,7 @@ export default function TutorialPage() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
             <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-600 rounded-full px-4 py-1.5 text-sm font-medium mb-4">
-              <Search size={16} />
+              <Search size={16} aria-hidden="true" />
               Method 2
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
@@ -267,7 +267,7 @@ export default function TutorialPage() {
                 className="flex gap-5 bg-cgiar-light rounded-xl p-6"
               >
                 <div className="flex-shrink-0 w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
-                  <step.icon size={24} className="text-blue-600" />
+                  <step.icon size={24} className="text-blue-600" aria-hidden="true" />
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-1">
@@ -286,7 +286,7 @@ export default function TutorialPage() {
       {/* ── Tips for Best Results ──────────────────────────────────── */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="text-center mb-10">
-          <Lightbulb size={28} className="text-cgiar-accent mx-auto mb-3" />
+          <Lightbulb size={28} className="text-cgiar-accent mx-auto mb-3" aria-hidden="true" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             Tips for Best Results
           </h2>
@@ -299,7 +299,7 @@ export default function TutorialPage() {
               className="bg-white rounded-xl p-6 shadow-sm border border-gray-100"
             >
               <div className="w-10 h-10 bg-cgiar-accent/10 rounded-lg flex items-center justify-center mb-3">
-                <tip.icon size={20} className="text-cgiar-accent" />
+                <tip.icon size={20} className="text-cgiar-accent" aria-hidden="true" />
               </div>
               <h3 className="text-base font-semibold text-gray-900 mb-1">
                 {tip.title}
@@ -316,7 +316,7 @@ export default function TutorialPage() {
       <div className="bg-white py-16">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <HelpCircle size={28} className="text-cgiar-accent mx-auto mb-3" />
+            <HelpCircle size={28} className="text-cgiar-accent mx-auto mb-3" aria-hidden="true" />
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
               Frequently Asked Questions
             </h2>
@@ -341,11 +341,13 @@ export default function TutorialPage() {
                     <ChevronUp
                       size={20}
                       className="text-cgiar-accent flex-shrink-0"
+                      aria-hidden="true"
                     />
                   ) : (
                     <ChevronDown
                       size={20}
                       className="text-gray-400 flex-shrink-0"
+                      aria-hidden="true"
                     />
                   )}
                 </button>
@@ -377,14 +379,14 @@ export default function TutorialPage() {
               to="/"
               className="inline-flex items-center gap-2 bg-cgiar-accent hover:bg-cgiar-accent/90 text-white font-medium px-6 py-3 rounded-lg transition-colors"
             >
-              <MessageSquare size={18} />
+              <MessageSquare size={18} aria-hidden="true" />
               Start a Conversation
             </Link>
             <Link
               to="/catalog"
               className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-medium px-6 py-3 rounded-lg transition-colors border border-white/20"
             >
-              <Search size={18} />
+              <Search size={18} aria-hidden="true" />
               Browse the Catalog
             </Link>
           </div>

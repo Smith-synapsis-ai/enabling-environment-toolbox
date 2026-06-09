@@ -27,7 +27,8 @@ export default function CatalogResults({ results, onToolClick }: CatalogResultsP
           <button
             key={tool.id}
             onClick={() => onToolClick(tool)}
-            className="bg-white rounded-xl shadow-sm hover:shadow-md border border-gray-100 overflow-hidden text-left transition-all group cursor-pointer"
+            aria-label={`View details for ${tool.title}`}
+            className="bg-white rounded-xl shadow-sm hover:shadow-md hover:-translate-y-0.5 border border-gray-100 overflow-hidden text-left transition-all duration-200 group cursor-pointer"
           >
             {/* Cover */}
             {tool.cover_image_url ? (
@@ -44,6 +45,7 @@ export default function CatalogResults({ results, onToolClick }: CatalogResultsP
                 <div
                   className="w-14 h-14 rounded-full flex items-center justify-center text-white text-lg font-bold"
                   style={{ backgroundColor: bgColor }}
+                  aria-hidden="true"
                 >
                   {tool.title.charAt(0)}
                 </div>
@@ -85,6 +87,7 @@ export default function CatalogResults({ results, onToolClick }: CatalogResultsP
                         ? 'fill-yellow-400 text-yellow-400'
                         : 'fill-none text-gray-200'
                     }
+                    aria-hidden="true"
                   />
                 ))}
                 {tool.rating_count > 0 && (

@@ -43,6 +43,15 @@
   }
 }
 
+@keyframes subtle-glow {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(214, 133, 255, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(214, 133, 255, 0.3);
+  }
+}
+
 .animate-fade-in {
   animation: fade-in 0.3s ease-out;
 }
@@ -57,6 +66,10 @@
 
 .animate-modal-content {
   animation: modal-content-in 0.3s ease-out;
+}
+
+.animate-subtle-glow {
+  animation: subtle-glow 3s ease-in-out infinite;
 }
 
 /* Scrollbar hiding utility */
@@ -92,12 +105,47 @@ html {
 body {
   @apply bg-cgiar-light text-gray-900 antialiased;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
   margin: 0;
+}
+
+/* Heading typography refinements */
+h1, h2, h3, h4, h5, h6 {
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+h1 {
+  font-weight: 700;
+}
+
+h2, h3 {
+  font-weight: 600;
+}
+
+/* Selection color using S4I purple */
+::selection {
+  background-color: #D685FF40;
+  color: #033529;
+}
+
+::-moz-selection {
+  background-color: #D685FF40;
+  color: #033529;
 }
 
 /* Focus ring reset — visible focus for keyboard users */
 *:focus-visible {
-  @apply outline-none ring-2 ring-cgiar-accent/50 ring-offset-1;
+  @apply outline-none ring-2 ring-s4i-purple/50 ring-offset-1;
+}
+
+/* Glass-morphism utility */
+.glass {
+  background: rgba(3, 53, 41, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* Respect prefers-reduced-motion */

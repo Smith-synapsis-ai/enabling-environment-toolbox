@@ -66,6 +66,7 @@ export default function FilterGroup({
                     }
                   }}
                   className="w-3.5 h-3.5 text-cgiar-accent focus:ring-cgiar-accent/50 border-gray-300 rounded"
+                  {...(type === 'radio' ? { name: title.toLowerCase().replace(/\s+/g, '-') } : {})}
                 />
                 <span className="flex-1 truncate">{option}</span>
                 <span className="text-xs text-gray-500 flex-shrink-0">{count}</span>

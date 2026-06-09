@@ -8,6 +8,7 @@ import AboutPage from './pages/AboutPage';
 import TutorialPage from './pages/TutorialPage';
 import CatalogPage from './pages/CatalogPage';
 import AdminPage from './pages/AdminPage';
+import { CatalogProvider } from './contexts/CatalogContext';
 
 /** Capture UTM parameters from the URL on first load and persist in sessionStorage. */
 function captureUtmParams() {
@@ -21,6 +22,15 @@ function captureUtmParams() {
   }
 }
 
+/** Page title mapping for WCAG 2.4.2 -- update document.title on SPA route changes */
+const PAGE_TITLES: Record<string, string> = {
+  '/': 'Enabling Environment Toolbox | CGIAR',
+  '/about': 'About | Enabling Environment Toolbox',
+  '/tutorial': 'How to Use | Enabling Environment Toolbox',
+  '/catalog': 'Search by Catalog | Enabling Environment Toolbox',
+  '/admin': 'Admin | Enabling Environment Toolbox',
+};
+
 function AppContent() {
   const location = useLocation();
   const [toolViewCount, setToolViewCount] = useState(0);
@@ -31,6 +41,12 @@ function AppContent() {
     captureUtmParams();
   }, []);
 
+  // Update document.title on route change (WCAG 2.4.2)
+  useEffect(() => {
+    const title = PAGE_TITLES[location.pathname] || 'Enabling Environment Toolbox | CGIAR';
+    document.title = title;
+  }, [location.pathname]);
+
   const handleToolViewed = useCallback(() => {
     setToolViewCount(prev => prev + 1);
   }, []);
@@ -40,42 +56,44 @@ function AppContent() {
   }, []);
 
   return (
-    <div className="min-h-screen">
-      {/* Skip to content link for keyboard/screen reader users */}
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[60] focus:bg-white focus:text-cgiar-dark focus:px-4 focus:py-2 focus:rounded-md focus:shadow-lg focus:text-sm focus:font-medium"
-      >
-        Skip to main content
-      </a>
+    <CatalogProvider>
+      <div className="min-h-screen">
+        {/* Skip to content link for keyboard/screen reader users */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[60] focus:bg-white focus:text-cgiar-dark focus:px-4 focus:py-2 focus:rounded-md focus:shadow-lg focus:text-sm focus:font-medium"
+        >
+          Skip to main content
+        </a>
 
-      {/* Header is always visible */}
-      <Header />
+        {/* Header is always visible */}
+        <Header />
 
-      <main id="main-content">
-        <Routes>
-          <Route path="/" element={
-            <HomePage
-              onToolViewed={handleToolViewed}
-              onSearchPerformed={handleSearchPerformed}
-            />
-          } />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/tutorial" element={<TutorialPage />} />
-          <Route path="/catalog" element={<CatalogPage onToolViewed={handleToolViewed} />} />
-          <Route path="/admin" element={<AdminPage />} />
-        </Routes>
-      </main>
+        <main id="main-content">
+          <Routes>
+            <Route path="/" element={
+              <HomePage
+                onToolViewed={handleToolViewed}
+                onSearchPerformed={handleSearchPerformed}
+              />
+            } />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/tutorial" element={<TutorialPage />} />
+            <Route path="/catalog" element={<CatalogPage onToolViewed={handleToolViewed} />} />
+            <Route path="/admin" element={<AdminPage />} />
+          </Routes>
+        </main>
 
-      {/* Pulse Survey */}
-      <PulseSurvey
-        hasSearched={searchPerformed}
-        hasViewedTool={toolViewCount > 0}
-      />
+        {/* Pulse Survey */}
+        <PulseSurvey
+          hasSearched={searchPerformed}
+          hasViewedTool={toolViewCount > 0}
+        />
 
-      {/* Email capture modal */}
-      <EmailCaptureModal toolViewCount={toolViewCount} />
-    </div>
+        {/* Email capture modal */}
+        <EmailCaptureModal toolViewCount={toolViewCount} />
+      </div>
+    </CatalogProvider>
   );
 }
 

@@ -13,7 +13,8 @@ export default function ToolCard({ tool, onClick }: ToolCardProps) {
   return (
     <button
       onClick={onClick}
-      className="flex-shrink-0 w-64 bg-white rounded-xl shadow-lg overflow-hidden text-left hover:shadow-xl transition-shadow group cursor-pointer"
+      aria-label={`View details for ${tool.title}`}
+      className="flex-shrink-0 w-64 bg-white rounded-xl shadow-lg overflow-hidden text-left hover:shadow-xl hover:-translate-y-1 transition-all duration-200 group cursor-pointer"
     >
       {/* Cover image or colored placeholder */}
       {tool.cover_image_url ? (
@@ -30,6 +31,7 @@ export default function ToolCard({ tool, onClick }: ToolCardProps) {
           <div
             className="w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold"
             style={{ backgroundColor: bgColor }}
+            aria-hidden="true"
           >
             {tool.title.charAt(0)}
           </div>

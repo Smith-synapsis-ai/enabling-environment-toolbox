@@ -36,6 +36,17 @@ export default function ToolCarousel({ tools, onToolClick }: ToolCarouselProps) 
     el.scrollBy({ left: direction === 'left' ? -amount : amount, behavior: 'smooth' });
   };
 
+  // Handle keyboard arrow key scrolling within the carousel
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      scroll('left');
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      scroll('right');
+    }
+  }, []);
+
   if (tools.length === 0) return null;
 
   return (
@@ -51,7 +62,7 @@ export default function ToolCarousel({ tools, onToolClick }: ToolCarouselProps) 
             className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-cgiar-dark/80 hover:bg-cgiar-dark rounded-full flex items-center justify-center text-white shadow-lg transition-colors"
             aria-label="Scroll left"
           >
-            <ChevronLeft size={18} />
+            <ChevronLeft size={18} aria-hidden="true" />
           </button>
         )}
 
@@ -59,6 +70,10 @@ export default function ToolCarousel({ tools, onToolClick }: ToolCarouselProps) 
           ref={scrollRef}
           className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 px-1"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          tabIndex={0}
+          role="region"
+          aria-label="Recommended tools carousel"
+          onKeyDown={handleKeyDown}
         >
           {tools.map(tool => (
             <ToolCard
@@ -75,7 +90,7 @@ export default function ToolCarousel({ tools, onToolClick }: ToolCarouselProps) 
             className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-cgiar-dark/80 hover:bg-cgiar-dark rounded-full flex items-center justify-center text-white shadow-lg transition-colors"
             aria-label="Scroll right"
           >
-            <ChevronRight size={18} />
+            <ChevronRight size={18} aria-hidden="true" />
           </button>
         )}
       </div>

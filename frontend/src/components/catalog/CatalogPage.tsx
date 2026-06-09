@@ -5,7 +5,7 @@ import CatalogResults from './CatalogResults';
 import Pagination from './Pagination';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ToolDetailPanel from '../tool/ToolDetailPanel';
-import { useCatalogSearch } from '../../hooks/useCatalogSearch';
+import { useCatalogContext } from '../../contexts/CatalogContext';
 import type { ToolSearchResult } from '../../types';
 
 interface CatalogPageProps {
@@ -28,7 +28,7 @@ export default function CatalogPage({ onToolViewed }: CatalogPageProps) {
     toggleArrayFilter,
     clearFilters,
     updateSort,
-  } = useCatalogSearch();
+  } = useCatalogContext();
 
   const [selectedToolId, setSelectedToolId] = useState<string | null>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
@@ -107,6 +107,7 @@ export default function CatalogPage({ onToolViewed }: CatalogPageProps) {
             {/* Results grid */}
             {!loading && !error && (
               <>
+                <h2 className="sr-only">Results</h2>
                 <CatalogResults results={results} onToolClick={handleToolClick} />
                 <Pagination
                   page={page}
