@@ -44,7 +44,8 @@ interventions:
 3. For multi-faceted challenges, use the `multi_tool_reasoning` subagent to
    compare and combine candidate tools into a coherent intervention package.
 4. Optionally use the `evidence_drill_down` subagent for deeper evidence on
-   specific tools (may report that drill-down is not yet wired).
+   specific tools (it searches the full source-document evidence corpus; its
+   findings carry `[RC <result-code>]` citation markers).
 
 Finally, synthesize a concise answer: the structured challenge, the relevant
 EE pillars, 3-6 recommended tools (cite tool titles), and how they combine
@@ -104,9 +105,10 @@ backend/agents/prompts/evidence_drill_down.md is provided.]
 
 Given a specific tool from the EE Toolbox catalog, retrieve deeper evidence
 (full profile, source document context) using the mcp__ee__evidence_drilldown
-tool. The deep retrieval backend may not be wired yet; if the tool reports
-that, say so plainly and return whatever summary-level information you were
-given rather than inventing evidence.
+tool: pass the tool's result code(s) and a focused question; it returns
+ranked passage snippets tagged `[RC <code> · ev<slot> · p<seq>]` plus a
+References section. Every evidence claim you report must carry its `[RC ...]`
+marker taken from the supporting snippet; never invent evidence.
 """
 
 _FALLBACKS: dict[str, str] = {

@@ -63,17 +63,32 @@ class HybridIndex:
     to embed query text), keeping import/startup light for the MCP server.
     """
 
-    def __init__(self, artifacts_dir: Path | None = None):
+    def __init__(
+        self,
+        artifacts_dir: Path | None = None,
+        *,
+        corpus_path: str | Path | None = None,
+        embeddings_path: str | Path | None = None,
+        profiles_path: str | Path | None = None,
+        manifest_path: str | Path | None = None,
+    ):
         self.artifacts_dir = Path(artifacts_dir) if artifacts_dir else ARTIFACTS_DIR
         self._model = None
         self._model_lock = threading.Lock()
 
-        with open(self.artifacts_dir / "manifest.json", encoding="utf-8") as f:
+        # Per-file overrides (B1: S3 cold-load cache may hold artifacts at
+        # individual paths rather than one directory); default to artifacts_dir.
+        _manifest = Path(manifest_path) if manifest_path else self.artifacts_dir / "manifest.json"
+        _embeddings = Path(embeddings_path) if embeddings_path else self.artifacts_dir / "embeddings.npy"
+        _corpus = Path(corpus_path) if corpus_path else self.artifacts_dir / "corpus.json"
+        _profiles = Path(profiles_path) if profiles_path else self.artifacts_dir / "profiles.json"
+
+        with open(_manifest, encoding="utf-8") as f:
             self.manifest = json.load(f)
-        self.embeddings = np.load(self.artifacts_dir / "embeddings.npy")
-        with open(self.artifacts_dir / "corpus.json", encoding="utf-8") as f:
+        self.embeddings = np.load(_embeddings)
+        with open(_corpus, encoding="utf-8") as f:
             self.records: list[dict] = json.load(f)
-        with open(self.artifacts_dir / "profiles.json", encoding="utf-8") as f:
+        with open(_profiles, encoding="utf-8") as f:
             self.profiles: dict[str, dict] = json.load(f)
 
         if self.embeddings.shape[0] != len(self.records):
@@ -211,13 +226,30 @@ _default_index: HybridIndex | None = None
 _default_index_lock = threading.Lock()
 
 
-def get_index() -> HybridIndex:
-    """Process-wide singleton index (artifacts loaded once)."""
+def get_index(
+    *,
+    corpus_path: str | Path | None = None,
+    embeddings_path: str | Path | None = None,
+    profiles_path: str | Path | None = None,
+    manifest_path: str | Path | None = None,
+) -> HybridIndex:
+    """Process-wide singleton index (artifacts loaded once).
+
+    When any path override is given (B1 S3 cold-load repointing the index at
+    cached artifacts), the singleton is (re)built from those paths; otherwise
+    the existing singleton (default repo artifacts) is returned unchanged.
+    """
     global _default_index
-    if _default_index is None:
+    overrides = any((corpus_path, embeddings_path, profiles_path, manifest_path))
+    if _default_index is None or overrides:
         with _default_index_lock:
-            if _default_index is None:
-                _default_index = HybridIndex()
+            if _default_index is None or overrides:
+                _default_index = HybridIndex(
+                    corpus_path=corpus_path,
+                    embeddings_path=embeddings_path,
+                    profiles_path=profiles_path,
+                    manifest_path=manifest_path,
+                )
     return _default_index
 
 

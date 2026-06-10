@@ -11,7 +11,8 @@ Tool names as seen by agents (server registered as "ee"):
   - mcp__ee__corpus_search       (Corpus Search)  -- REAL A4 hybrid retrieval
                                                      (see retrieval_tools.py, Step 0)
   - mcp__ee__get_tool_profile    (full wiki profile by id, A4 / Step 0)
-  - mcp__ee__evidence_drilldown  (Evidence Drill-Down) -- stub, deep corpus is B1
+  - mcp__ee__evidence_drilldown  (Evidence Drill-Down) -- REAL B1 evidence-store
+                                                     FTS (see evidence_tools.py)
   - mcp__ee__report_get          (orchestrator) -- current report draft (A5)
   - mcp__ee__report_update       (orchestrator) -- patch the report draft (A5)
   - mcp__ee__report_render       (orchestrator) -- render draft to markdown (A5)
@@ -23,6 +24,7 @@ from typing import Any, Awaitable, Callable
 
 from claude_agent_sdk import create_sdk_mcp_server, tool
 
+from agents.evidence_tools import evidence_drilldown
 from agents.report_state import ReportDraft, get_report_store
 from agents.retrieval_tools import corpus_search, get_tool_profile
 
@@ -76,37 +78,10 @@ async def ask_user_question(args: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # corpus_search / get_tool_profile -- REAL A4 hybrid retrieval (Step 0)
 # Implemented in agents/retrieval_tools.py and registered below.
+#
+# evidence_drilldown -- REAL B1 evidence-store FTS drill-down
+# Implemented in agents/evidence_tools.py and registered below.
 # ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
-# evidence_drilldown -- stub
-# ---------------------------------------------------------------------------
-
-@tool(
-    "evidence_drilldown",
-    "Fetch deep evidence for a specific EE Toolbox tool from the source-"
-    "document evidence corpus. NOTE: backend not yet wired (Task B1). For "
-    "the full wiki profile of a tool, use get_tool_profile instead.",
-    {"tool_id": str, "question": str},
-)
-async def evidence_drilldown(args: dict[str, Any]) -> dict[str, Any]:
-    # STUB: the deep evidence corpus lands with Task B1. Summary-level data
-    # is already available: corpus_search (hybrid retrieval) and
-    # get_tool_profile (full wiki profile) are real.
-    return {
-        "content": [{
-            "type": "text",
-            "text": (
-                "Deep evidence drill-down (source-document corpus) is not yet "
-                "wired -- it arrives with Task B1. For the full wiki profile "
-                "of this tool, call mcp__ee__get_tool_profile with its id; "
-                "otherwise use the summary-level catalog information you "
-                "already have and state that deeper evidence retrieval is "
-                "pending."
-            ),
-        }]
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -436,9 +411,14 @@ async def report_render(args: dict[str, Any]) -> dict[str, Any]:
 
 def build_ee_mcp_server():
     """Create the in-process MCP server registered as 'ee' on the session."""
+    # B1: one-shot S3 cold-load of retrieval + evidence artifacts. No-op
+    # unless EE_RETRIEVAL_S3 is set (local mode keeps default repo paths).
+    from agents.artifact_loader import init_from_env
+
+    init_from_env()
     return create_sdk_mcp_server(
         name="ee",
-        version="0.3.0",
+        version="0.4.0",
         tools=[
             ask_user_question,
             corpus_search,
@@ -452,9 +432,9 @@ def build_ee_mcp_server():
 
 
 # Fully-qualified tool names for AgentDefinition tool lists.
-# (corpus_search / get_tool_profile names are exported by retrieval_tools.py.)
+# (corpus_search / get_tool_profile names are exported by retrieval_tools.py;
+#  evidence_drilldown's name is exported by evidence_tools.py.)
 TOOL_ASK_USER = "mcp__ee__ask_user_question"
-TOOL_EVIDENCE_DRILLDOWN = "mcp__ee__evidence_drilldown"
 TOOL_REPORT_GET = "mcp__ee__report_get"
 TOOL_REPORT_UPDATE = "mcp__ee__report_update"
 TOOL_REPORT_RENDER = "mcp__ee__report_render"

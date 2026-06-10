@@ -55,10 +55,10 @@ from agents.definitions import build_subagents
 from agents.model_config import ORCHESTRATOR_MODEL, SUBAGENT_MODEL
 from agents.prompt_loader import load_prompt, prompt_source
 from agents.report_state import ReportDraft, get_report_store
+from agents.evidence_tools import TOOL_EVIDENCE_DRILLDOWN
 from agents.retrieval_tools import TOOL_CORPUS_SEARCH, TOOL_GET_PROFILE
 from agents.stub_tools import (
     TOOL_ASK_USER,
-    TOOL_EVIDENCE_DRILLDOWN,
     TOOL_REPORT_GET,
     TOOL_REPORT_RENDER,
     TOOL_REPORT_UPDATE,
