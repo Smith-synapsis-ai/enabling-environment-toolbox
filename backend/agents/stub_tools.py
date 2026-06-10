@@ -411,6 +411,11 @@ async def report_render(args: dict[str, Any]) -> dict[str, Any]:
 
 def build_ee_mcp_server():
     """Create the in-process MCP server registered as 'ee' on the session."""
+    # B1: one-shot S3 cold-load of retrieval + evidence artifacts. No-op
+    # unless EE_RETRIEVAL_S3 is set (local mode keeps default repo paths).
+    from agents.artifact_loader import init_from_env
+
+    init_from_env()
     return create_sdk_mcp_server(
         name="ee",
         version="0.4.0",

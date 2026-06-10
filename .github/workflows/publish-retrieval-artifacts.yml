@@ -1,0 +1,124 @@
+name: Publish Retrieval Artifacts
+
+# ==============================================================================
+# B1 — publish retrieval index artifacts + compressed evidence corpus to S3.
+#
+# Dispatch-only workflow, independent of deploy.yml (the heavy ECS pipeline).
+# All S3 writes happen HERE via OIDC — never from a local CLI.
+#
+# S3 layout produced:
+#   s3://ee-toolbox-retrieval-207258148366/
+#     retrieval/<version>/{embeddings.npy, corpus.json, profiles.json, manifest.json}
+#     evidence/<version>/evidence_corpus.db.zst
+#     latest.json   # {"retrieval": "...", "evidence": "...", "sha256": {...}, "published_at": "..."}
+#
+# The big DB travels as a GitHub Release asset (git's 100 MB limit), which this
+# workflow downloads and forwards to S3.
+# ==============================================================================
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Artifact version prefix in S3 (retrieval/<version>/, evidence/<version>/)'
+        required: true
+        default: 'v1'
+      release_tag:
+        description: 'GitHub release tag holding evidence_corpus.db.zst'
+        required: true
+        default: 'b1-evidence-v1'
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: eu-central-1
+  BUCKET: ee-toolbox-retrieval-207258148366
+
+jobs:
+  publish:
+    name: Publish artifacts to S3
+    runs-on: ubuntu-latest
+    environment: prd
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: eu-central-1
+
+      - name: Verify AWS account
+        run: |
+          aws sts get-caller-identity --query Account --output text
+
+      - name: Ensure bucket exists (idempotent, private, versioned)
+        run: |
+          aws s3api head-bucket --bucket "$BUCKET" 2>/dev/null || \
+            aws s3api create-bucket --bucket "$BUCKET" --region "$AWS_REGION" \
+              --create-bucket-configuration LocationConstraint="$AWS_REGION"
+          aws s3api put-bucket-versioning --bucket "$BUCKET" \
+            --versioning-configuration Status=Enabled
+          aws s3api put-public-access-block --bucket "$BUCKET" \
+            --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+
+      - name: Download evidence corpus release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "${{ inputs.release_tag }}" \
+            --repo "${{ github.repository }}" \
+            --pattern 'evidence_corpus.db.zst'
+          ls -l evidence_corpus.db.zst
+
+      - name: Upload artifacts to S3
+        run: |
+          aws s3 cp pipeline/retrieval/artifacts/embeddings.npy "s3://$BUCKET/retrieval/${{ inputs.version }}/embeddings.npy"
+          aws s3 cp pipeline/retrieval/artifacts/corpus.json    "s3://$BUCKET/retrieval/${{ inputs.version }}/corpus.json"
+          aws s3 cp pipeline/retrieval/artifacts/profiles.json  "s3://$BUCKET/retrieval/${{ inputs.version }}/profiles.json"
+          aws s3 cp pipeline/retrieval/artifacts/manifest.json  "s3://$BUCKET/retrieval/${{ inputs.version }}/manifest.json"
+          aws s3 cp evidence_corpus.db.zst                      "s3://$BUCKET/evidence/${{ inputs.version }}/evidence_corpus.db.zst"
+
+      - name: Generate and upload latest.json
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          python3 - <<'EOF'
+          import datetime
+          import hashlib
+          import json
+          import os
+
+          files = {
+              "embeddings.npy": "pipeline/retrieval/artifacts/embeddings.npy",
+              "corpus.json": "pipeline/retrieval/artifacts/corpus.json",
+              "profiles.json": "pipeline/retrieval/artifacts/profiles.json",
+              "manifest.json": "pipeline/retrieval/artifacts/manifest.json",
+              "evidence_corpus.db.zst": "evidence_corpus.db.zst",
+          }
+          sha256 = {}
+          for name, path in files.items():
+              h = hashlib.sha256()
+              with open(path, "rb") as f:
+                  for chunk in iter(lambda: f.read(1 << 20), b""):
+                      h.update(chunk)
+              sha256[name] = h.hexdigest()
+          version = os.environ["VERSION"]
+          doc = {
+              "retrieval": version,
+              "evidence": version,
+              "sha256": sha256,
+              "published_at": datetime.datetime.now(datetime.timezone.utc)
+                  .isoformat(timespec="seconds"),
+          }
+          with open("latest.json", "w", encoding="utf-8") as f:
+              json.dump(doc, f, indent=2)
+          print(json.dumps(doc, indent=2))
+          EOF
+          aws s3 cp latest.json "s3://$BUCKET/latest.json"
+
+      - name: Final listing
+        run: |
+          aws s3 ls "s3://$BUCKET" --recursive
