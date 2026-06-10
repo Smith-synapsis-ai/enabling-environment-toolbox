@@ -1,0 +1,14 @@
+# Dependencies for pipeline/retrieval (Task A4 hybrid retrieval).
+# Kept separate from backend/requirements.txt -- this package is used by the
+# offline index builder and the stdio MCP server, not the FastAPI backend.
+#
+# Install: pip install -r pipeline/retrieval/requirements.txt
+# Note: torch + sentence-transformers pull ~2-3 GB on first install; the
+# Qwen/Qwen3-Embedding-0.6B weights (~1.2 GB) download to
+# ~/.cache/huggingface/ on first model load.
+
+numpy>=1.26
+sentence-transformers>=3.0
+torch>=2.2
+rank-bm25>=0.2.2
+mcp>=1.0

@@ -1,0 +1,13 @@
+{
+  "model": "Qwen/Qwen3-Embedding-0.6B",
+  "embedding_dim": 1024,
+  "count": 100,
+  "source": "/Users/smithai/workspace/ee-toolbox-wt-a4/data/batch-results-parsed.json",
+  "source_note": "data/batch-results-parsed.json (100 wiki profiles) is the source of truth; data/seed.sql (92 tools) is a stale subset and ignored.",
+  "built_at": "2026-06-10T04:09:49.334795+00:00",
+  "artifacts": {
+    "embeddings": "embeddings.npy",
+    "corpus": "corpus.json",
+    "profiles": "profiles.json"
+  }
+}
