@@ -4,13 +4,16 @@ name: "One-off: Connect Amplify App to GitHub"
 # (ee-toolbox, mgmt account) to this GitHub repository so that pushes to
 # `main` auto-build and deploy.
 #
-# Steps:
-# 1. OIDC-assume the MGMT deploy role (read+write Amplify permissions)
-# 2. Show pre-state of the app (repository should be null)
-# 3. update-app: attach repository + GitHub access token + monorepo build spec
-# 4. update-branch: enable auto-build on `main`
-# 5. Verify post-state (repository set, autoBuild true)
-# 6. Optionally start a RELEASE job to test the build pipeline immediately
+# Amplify does not allow connecting a repository while a manually-deployed
+# branch exists ("Cannot connect your app to repository while manually
+# deployed branch still exists"). So the sequence is:
+# 1. OIDC-assume the MGMT deploy role
+# 2. Show pre-state of the app
+# 3. DELETE the manually-deployed `main` branch (brief downtime starts)
+# 4. update-app: attach repository + GitHub access token + monorepo build spec
+# 5. create-branch `main` with auto-build enabled (connected to repo branch)
+# 6. Restore the domain subdomain mapping if Amplify dropped it
+# 7. Start a RELEASE build and poll to SUCCEED (downtime ends)
 #
 # Required secret: AMPLIFY_GH_PAT — a GitHub token with `repo` scope
 # (used by Amplify to install the webhook and clone the repo).
@@ -22,10 +25,6 @@ on:
         description: 'Amplify App ID (mgmt account)'
         type: string
         default: 'd15pb16eb2gi8i'
-      start_test_build:
-        description: 'Start a test RELEASE build after connecting'
-        type: boolean
-        default: true
 
 permissions:
   id-token: write
@@ -64,6 +63,18 @@ jobs:
           aws amplify get-app --app-id "${{ inputs.app_id }}" \
             --query 'app.{name:name,repository:repository,cloneMethod:repositoryCloneMethod,autoBranchBuild:enableBranchAutoBuild}' \
             --output json
+          aws amplify list-branches --app-id "${{ inputs.app_id }}" \
+            --query 'branches[].{branch:branchName,autoBuild:enableAutoBuild}' --output json
+
+      - name: Delete manually-deployed main branch
+        run: |
+          if aws amplify get-branch --app-id "${{ inputs.app_id }}" --branch-name main >/dev/null 2>&1; then
+            aws amplify delete-branch --app-id "${{ inputs.app_id }}" --branch-name main \
+              --query 'branch.branchName' --output text
+            echo "Deleted manually-deployed branch 'main' (site briefly down until first build)."
+          else
+            echo "Branch 'main' does not exist — nothing to delete."
+          fi
 
       - name: Connect repository to Amplify app
         run: |
@@ -75,14 +86,31 @@ jobs:
             --query 'app.{name:name,repository:repository,cloneMethod:repositoryCloneMethod}' \
             --output json
 
-      - name: Enable auto-build on main branch
+      - name: Create connected main branch with auto-build
         run: |
-          aws amplify update-branch \
+          aws amplify create-branch \
             --app-id "${{ inputs.app_id }}" \
             --branch-name main \
+            --stage PRODUCTION \
             --enable-auto-build \
-            --query 'branch.{branch:branchName,autoBuild:enableAutoBuild}' \
+            --query 'branch.{branch:branchName,autoBuild:enableAutoBuild,stage:stage}' \
             --output json
+
+      - name: Restore domain subdomain mapping if needed
+        run: |
+          SUBS=$(aws amplify list-domain-associations --app-id "${{ inputs.app_id }}" \
+            --query "domainAssociations[?domainName=='synapsis-analytics.com'].subDomains[].subDomainSetting.prefix" \
+            --output text)
+          echo "Current subdomain prefixes: '$SUBS'"
+          if ! echo "$SUBS" | grep -qw "ee-toolbox"; then
+            echo "Subdomain mapping missing — restoring ee-toolbox → main"
+            aws amplify update-domain-association \
+              --app-id "${{ inputs.app_id }}" \
+              --domain-name synapsis-analytics.com \
+              --sub-domain-settings "prefix=ee-toolbox,branchName=main"
+          else
+            echo "Subdomain mapping intact."
+          fi
 
       - name: Verify post-connect state
         run: |
@@ -102,16 +130,25 @@ jobs:
           fi
           echo "Amplify app is now connected to GitHub with auto-build on main."
 
-      - name: Start test RELEASE build
-        if: ${{ inputs.start_test_build }}
+      - name: Build and deploy (RELEASE job, restores the live site)
         run: |
           APP_ID="${{ inputs.app_id }}"
-          JOB_ID=$(aws amplify start-job \
-            --app-id "$APP_ID" \
-            --branch-name main \
-            --job-type RELEASE \
-            --query 'jobSummary.jobId' --output text)
-          echo "Started RELEASE job: $JOB_ID"
+
+          # Creating a connected branch sometimes auto-starts a build; reuse it if so.
+          sleep 10
+          JOB_ID=$(aws amplify list-jobs --app-id "$APP_ID" --branch-name main --max-items 1 \
+            --query "jobSummaries[?status=='PENDING' || status=='PROVISIONING' || status=='RUNNING'].jobId | [0]" \
+            --output text 2>/dev/null || echo "None")
+          if [ -z "$JOB_ID" ] || [ "$JOB_ID" = "None" ]; then
+            JOB_ID=$(aws amplify start-job \
+              --app-id "$APP_ID" \
+              --branch-name main \
+              --job-type RELEASE \
+              --query 'jobSummary.jobId' --output text)
+            echo "Started RELEASE job: $JOB_ID"
+          else
+            echo "Reusing auto-started job: $JOB_ID"
+          fi
 
           # Poll for completion (max 15 minutes)
           for i in $(seq 1 90); do
