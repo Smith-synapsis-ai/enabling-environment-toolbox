@@ -55,7 +55,11 @@ Resources:
       Name: !Sub 'ee-toolbox-${Environment}'
       Platform: WEB
       CustomRules:
-        - Source: "/<*>"
+        # Rewrite deep-link routes (no file extension) to index.html for SPA
+        # routing. The regex </^[^.]+$/> matches paths WITHOUT a dot, so it
+        # catches /assistant, /dashboard etc. but NOT /assets/bundle.abc123.js,
+        # /favicon.svg, or any other static asset with an extension.
+        - Source: "</^[^.]+$/>"
           Target: /index.html
           Status: "200"
       EnvironmentVariables:

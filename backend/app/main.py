@@ -109,11 +109,24 @@ app.include_router(assistant.router, tags=["Assistant"])  # carries own /api + /
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint that also tests database connectivity."""
+    """Health check endpoint — verifies the SQLite agent store is accessible.
+
+    On EC2 the session DB is SQLite (replicated via Litestream to S3).
+    The legacy async_engine (Postgres) is not used on EC2; checking it would
+    always return an error because no Postgres runs there.
+    """
+    import os
+    import sqlite3 as _sqlite3
+
+    db_path = os.environ.get("AGENT_STORE_PATH", "/app/backend/data/agent_store.db")
     try:
-        async with async_engine.connect() as conn:
-            await conn.execute(text("SELECT 1"))
-        return {"status": "ok", "database": "connected"}
+        if os.path.exists(db_path):
+            with _sqlite3.connect(db_path, check_same_thread=False) as conn:
+                conn.execute("SELECT 1")
+            return {"status": "ok", "database": "connected"}
+        else:
+            # DB not yet restored from Litestream (first boot or cold start)
+            return {"status": "ok", "database": "initializing"}
     except Exception as e:
         return {"status": "error", "database": str(e)}
 
