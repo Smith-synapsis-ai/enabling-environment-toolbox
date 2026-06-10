@@ -14,10 +14,23 @@ Event shapes (all dicts, key "type" discriminates):
   {"type": "tool_result", "tool_use_id", "content", "is_error"}
   {"type": "result", "session_id", "is_error", "duration_ms", "num_turns",
    "total_cost_usd", "usage", "final_text"}
+  {"type": "report_state", "session_id", "revision", "turn", "exists"}   (A5)
 
 Read-only posture: the orchestrator may only use Task/TodoWrite plus the
-read-only "ee" stub tools; Write/Edit/Bash and friends are disallowed.
-Full enforcement hooks are Task A8.
+"ee" tools (read-only catalog access + the A5 report-draft tools, which
+persist only the assistant's own report state); Write/Edit/Bash and friends
+are disallowed. Full enforcement hooks are Task A8.
+
+Iterative report flow (Task A5): a per-session report draft persists in the
+ReportStore (see report_state.py). Calling ``run_challenge`` again with the
+SAME session_id is a refinement turn: the existing draft is loaded, a
+``report_state`` event announces it, and the SDK session is RESUMED so the
+model keeps full conversational context. Resume bookkeeping: the CLI may
+assign a fresh internal session id on resume, so we track the latest SDK
+session id per logical session in ``_RESUME_IDS`` and resume from that. If
+the process restarted (no resume id known), we fall back to injecting the
+rendered draft + changelog into the new turn -- report state survives via
+the store either way.
 """
 
 import logging
@@ -41,11 +54,16 @@ from claude_agent_sdk import (
 from agents.definitions import build_subagents
 from agents.model_config import ORCHESTRATOR_MODEL, SUBAGENT_MODEL
 from agents.prompt_loader import load_prompt, prompt_source
+from agents.report_state import ReportDraft, get_report_store
 from agents.retrieval_tools import TOOL_CORPUS_SEARCH, TOOL_GET_PROFILE
 from agents.stub_tools import (
     TOOL_ASK_USER,
     TOOL_EVIDENCE_DRILLDOWN,
+    TOOL_REPORT_GET,
+    TOOL_REPORT_RENDER,
+    TOOL_REPORT_UPDATE,
     build_ee_mcp_server,
+    set_current_report_session,
 )
 
 logger = logging.getLogger(__name__)
@@ -77,7 +95,16 @@ _ALLOWED_TOOLS = [
     TOOL_CORPUS_SEARCH,
     TOOL_GET_PROFILE,
     TOOL_EVIDENCE_DRILLDOWN,
+    TOOL_REPORT_GET,
+    TOOL_REPORT_UPDATE,
+    TOOL_REPORT_RENDER,
 ]
+
+# Logical session id -> latest SDK session id, for resuming multi-turn
+# sessions within this process. The CLI can assign a fresh internal session
+# id on each resume, so always resume from the LATEST one (resuming the
+# original id would drop later turns).
+_RESUME_IDS: dict[str, str] = {}
 
 _PROMPT_NAMES = (
     "orchestrator",
@@ -98,8 +125,19 @@ def _normalize_session_id(session_id: str | None) -> str:
     return str(uuid.uuid4())
 
 
-def build_options(session_id: str) -> ClaudeAgentOptions:
-    """Assemble ClaudeAgentOptions for one challenge session."""
+def build_options(
+    session_id: str,
+    *,
+    resume_from: str | None = None,
+) -> ClaudeAgentOptions:
+    """Assemble ClaudeAgentOptions for one challenge session.
+
+    Args:
+        session_id: normalized UUID for a NEW SDK session.
+        resume_from: when set, RESUME that SDK session instead of starting a
+            new one (the SDK forbids combining ``session_id`` and ``resume``,
+            so ``session_id`` is ignored in that case).
+    """
     return ClaudeAgentOptions(
         model=ORCHESTRATOR_MODEL,
         system_prompt=load_prompt("orchestrator"),
@@ -110,7 +148,8 @@ def build_options(session_id: str) -> ClaudeAgentOptions:
         permission_mode="bypassPermissions",
         max_turns=MAX_TURNS,
         cwd=str(REPO_ROOT),
-        session_id=session_id,
+        session_id=None if resume_from else session_id,
+        resume=resume_from,
     )
 
 
@@ -154,10 +193,55 @@ async def run_challenge(
         "prompt_sources": {name: prompt_source(name) for name in _PROMPT_NAMES},
     }
 
-    options = build_options(sid)
+    # --- Report lifecycle (Task A5) -------------------------------------
+    # Load any existing draft for this session; a draft means this is a
+    # refinement turn, never a restart.
+    draft_raw = await get_report_store().load_draft(sid)
+    draft = ReportDraft.from_json(draft_raw) if draft_raw else None
+    turn = (draft.turn_count + 1) if draft else 1
+    # Bind the report tools to this session (one session per run_challenge
+    # call by design; the tools also accept an explicit session_id override).
+    set_current_report_session(sid, turn=turn)
+    yield {
+        "type": "report_state",
+        "session_id": sid,
+        "revision": draft.revision if draft else 0,
+        "turn": turn,
+        "exists": draft is not None,
+    }
+
+    resume_from = _RESUME_IDS.get(sid)
+    prompt = challenge_text
+    if draft is not None:
+        if resume_from:
+            # SDK resume keeps full conversational context; a short context
+            # block reminds the orchestrator of the draft state.
+            prompt = (
+                f"[Report context] An existing report draft (revision "
+                f"{draft.revision}, turn {turn} of this session) exists -- "
+                "refine and extend it with the report tools; do not restart "
+                f"the flow.\n\nUser: {challenge_text}"
+            )
+        else:
+            # Process restarted (no SDK session to resume): inject the
+            # rendered draft + changelog so the new SDK session still
+            # continues the report rather than restarting it.
+            changelog = "\n".join(
+                f"- rev {c.get('revision')} (turn {c.get('turn')}): {c.get('summary')}"
+                for c in draft.changelog
+            )
+            prompt = (
+                f"[Report context] An existing report draft (revision "
+                f"{draft.revision}) exists for this session -- refine it, do "
+                "not restart. Current draft:\n\n"
+                f"{draft.render_markdown()}\n\nChangelog:\n{changelog}\n\n"
+                f"User: {challenge_text}"
+            )
+
+    options = build_options(sid, resume_from=resume_from)
     final_text_parts: list[str] = []
 
-    async for message in query(prompt=challenge_text, options=options):
+    async for message in query(prompt=prompt, options=options):
         if isinstance(message, AssistantMessage):
             parent_id = getattr(message, "parent_tool_use_id", None)
             for block in message.content:
@@ -201,6 +285,10 @@ async def run_challenge(
                             "is_error": bool(block.is_error),
                         }
         elif isinstance(message, ResultMessage):
+            # Track the latest SDK session id so the NEXT run_challenge call
+            # for this logical session resumes from it (A5 multi-turn).
+            if message.session_id:
+                _RESUME_IDS[sid] = message.session_id
             yield {
                 "type": "result",
                 "session_id": message.session_id,

@@ -56,6 +56,42 @@ Run every new challenge through this flow, in order:
    Where a short visual synthesis of success stories is appropriate, frame it as
    **enabling-environment intelligence**.
 
+## Report lifecycle — the persistent report draft
+
+Every session carries ONE **report draft** — the report-in-progress — persisted across turns and
+across session reloads. You maintain it with three tools (yours alone; subagents never touch it):
+
+- `mcp__ee__report_get` — read the current draft (JSON). Returns `{"exists": false}` before the
+  first update.
+- `mcp__ee__report_update` — apply a **structured patch**: set the title or challenge summary,
+  upsert/remove sections by id, upsert candidate tools (`candidate` → `accepted`/`rejected`), and
+  always pass a one-line `changelog_summary`. Each call increments the draft revision.
+- `mcp__ee__report_render` — render the draft to clean markdown for the user.
+
+**First turn of a challenge:** create the draft early — right after Triage returns the challenge
+brief, call `report_update` with a working title, the challenge summary, and a first section
+capturing the brief. As subagent results land (candidate tools from Corpus Search, the pathway
+from Multi-Tool Reasoning, evidence from Drill-Down), patch them into the draft as sections and
+candidate-tool entries with their sources.
+
+**Later turns:** if your turn context says an existing report draft exists (or `report_get` shows
+one), this is a **refinement turn**. First classify what the user is asking:
+
+- **Extend** (new dimension, new section) → run only the subagents needed for the new material,
+  then upsert the new section(s).
+- **Deepen** (more evidence on specific tools) → Corpus Search / Evidence Drill-Down on those
+  tools only, then enrich the relevant section(s) and sources.
+- **Adjust scope** (narrow, trim, re-prioritize) → usually no retrieval at all: update section
+  bodies, remove sections, set candidate tools to `accepted`/`rejected`, remove dropped tools.
+- **Question** (asks about the draft) → answer from `report_get`; no subagents, no draft change
+  unless the answer warrants recording.
+
+Route to the **minimal** set of subagents the turn actually requires, then patch the draft —
+**never regenerate it from scratch**, and never re-run the full seven-step flow on a refinement
+turn. **Always end every turn** by calling `report_render` and presenting the current report
+state to the user, citing its revision number (e.g. "Report draft — revision 4"). The session
+does **not** end at step 7: invite the user to keep refining the report.
+
 ## Iterative continuation — never start over
 
 A conversation is a **report-in-progress**. When the user follows up (refines the challenge, asks
