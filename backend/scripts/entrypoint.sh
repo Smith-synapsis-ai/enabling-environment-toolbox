@@ -57,6 +57,17 @@ if [ -n "${LITESTREAM_S3_PATH:-}" ]; then
     echo "Litestream PID: $LITESTREAM_PID"
 fi
 
+# ── Pre-cache Qwen3-Embedding-0.6B (required for semantic hybrid search) ─────
+# retrieval_tools.py sets HF_HUB_OFFLINE=1 via setdefault to prevent HEAD
+# requests at query time; the model must therefore be cached before uvicorn
+# starts. HF_HUB_OFFLINE=0 as a prefix allows the download for this one step.
+echo "Pre-caching embedding model (Qwen/Qwen3-Embedding-0.6B)..."
+HF_HUB_OFFLINE=0 python3 -c "
+from sentence_transformers import SentenceTransformer
+m = SentenceTransformer('Qwen/Qwen3-Embedding-0.6B')
+print('Embedding model cached successfully')
+" && echo "Model ready." || echo "WARNING: model pre-cache failed — corpus_search may error on first use"
+
 # ── Start FastAPI ─────────────────────────────────────────────────────────────
 # PYTHONPATH=/app/backend:/app (set in Dockerfile) makes app.main resolve.
 echo "Starting uvicorn on :8099 ..."
