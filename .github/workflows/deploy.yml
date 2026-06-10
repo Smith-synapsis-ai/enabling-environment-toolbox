@@ -29,7 +29,6 @@ on:
         required: true
         type: choice
         options:
-          - mgmt
           - dev
           - tst
           - prd
@@ -85,7 +84,7 @@ jobs:
               echo "frontend_domain=tst-ee-toolbox.synapsis-analytics.com" >> $GITHUB_OUTPUT
               echo "frontend_prefix=tst-ee-toolbox" >> $GITHUB_OUTPUT
               ;;
-            prd|mgmt)
+            prd)
               echo "api_domain=api-ee-toolbox.synapsis-analytics.com" >> $GITHUB_OUTPUT
               echo "frontend_domain=ee-toolbox.synapsis-analytics.com" >> $GITHUB_OUTPUT
               echo "frontend_prefix=ee-toolbox" >> $GITHUB_OUTPUT
@@ -482,47 +481,9 @@ jobs:
             --no-fail-on-empty-changeset
 
       # ----------------------------------------------------------------
-      # 17. Deploy to Amplify (env-prefixed)
+      # 17. (removed) Manual zip-deploy to Amplify is obsolete: Amplify
+      #     auto-builds the frontend from the connected GitHub repo (A9).
       # ----------------------------------------------------------------
-      - name: Deploy to Amplify
-        run: |
-          STACK_NAME="ee-toolbox-${ENV}-frontend"
-          APP_ID=$(aws cloudformation describe-stacks \
-            --stack-name $STACK_NAME \
-            --query "Stacks[0].Outputs[?OutputKey=='AmplifyAppId'].OutputValue" \
-            --output text)
-
-          # Create ZIP of frontend build
-          cd frontend/dist && zip -r ../../frontend-build.zip . && cd ../..
-
-          # Create deployment (Amplify branch name stays 'main' regardless of environment)
-          DEPLOY_RESULT=$(aws amplify create-deployment --app-id $APP_ID --branch-name main)
-          JOB_ID=$(echo $DEPLOY_RESULT | python3 -c "import sys,json; print(json.load(sys.stdin)['jobId'])")
-          UPLOAD_URL=$(echo $DEPLOY_RESULT | python3 -c "import sys,json; print(json.load(sys.stdin)['zipUploadUrl'])")
-
-          # Upload and start
-          curl -T frontend-build.zip "$UPLOAD_URL"
-          aws amplify start-deployment --app-id $APP_ID --branch-name main --job-id $JOB_ID
-
-          # Wait for deployment
-          echo "Waiting for Amplify deployment..."
-          for i in $(seq 1 30); do
-            STATUS=$(aws amplify get-job \
-              --app-id $APP_ID \
-              --branch-name main \
-              --job-id $JOB_ID \
-              --query "job.summary.status" \
-              --output text)
-            echo "  Status: $STATUS"
-            if [ "$STATUS" = "SUCCEED" ]; then
-              echo "Frontend deployment successful!"
-              break
-            elif [ "$STATUS" = "FAILED" ] || [ "$STATUS" = "CANCELLED" ]; then
-              echo "Frontend deployment failed with status: $STATUS"
-              exit 1
-            fi
-            sleep 10
-          done
 
       # ----------------------------------------------------------------
       # DNS: Update Route53 record via management account
