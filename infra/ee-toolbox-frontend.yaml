@@ -66,15 +66,29 @@ Resources:
         - Name: VITE_API_BASE_URL
           Value: !Ref APIUrl
       BuildSpec: |
+        # NOTE: Amplify also picks up amplify.yml from the repo root when the app
+        # is connected to GitHub. This BuildSpec is set here so CloudFormation does
+        # not leave it unset on first deploy; it mirrors amplify.yml exactly so
+        # future CF updates do not undo the repo-connected build configuration.
         version: 1
         frontend:
           phases:
+            preBuild:
+              commands:
+                - cd "$(git rev-parse --show-toplevel)/frontend"
+                - npm ci
             build:
-              commands: []
+              commands:
+                - cd "$(git rev-parse --show-toplevel)/frontend"
+                - npm run build
+                - cd "$(git rev-parse --show-toplevel)"
           artifacts:
-            baseDirectory: /
+            baseDirectory: frontend/dist
             files:
               - '**/*'
+          cache:
+            paths:
+              - frontend/node_modules/**/*
       Tags:
         - Key: Project
           Value: ee-toolbox
