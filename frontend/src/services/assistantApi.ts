@@ -1,9 +1,20 @@
 // Task A6 — assistant REST helpers (separate from the static-mode mock api.ts;
-// these hit the real backend through the Vite /api proxy).
+// these hit the real backend through the Vite /api proxy in dev, or directly
+// via VITE_API_BASE_URL in production (Amplify CDN does not proxy /api calls).
 
 import type { ReportDraftData } from '../types/assistant';
 
 const SESSION_STORAGE_KEY = 'ee-assistant-session-id';
+
+/**
+ * Returns the absolute base URL for backend API calls.
+ * In production, VITE_API_BASE_URL is set (e.g. https://api-ee-toolbox.synapsis-analytics.com)
+ * and must be used because the Amplify CDN domain does not proxy /api/* to the backend.
+ * In local dev, the empty string causes fetch() to use relative paths handled by Vite proxy.
+ */
+function apiBase(): string {
+  return import.meta.env.VITE_API_BASE_URL || '';
+}
 
 export function getAssistantSessionId(): string | null {
   return localStorage.getItem(SESSION_STORAGE_KEY);
@@ -24,7 +35,7 @@ export function newAssistantSessionId(): string {
 }
 
 export async function fetchSessions(): Promise<string[]> {
-  const res = await fetch('/api/assistant/sessions');
+  const res = await fetch(`${apiBase()}/api/assistant/sessions`);
   if (!res.ok) {
     throw new Error(`Failed to list sessions (HTTP ${res.status})`);
   }
@@ -34,7 +45,7 @@ export async function fetchSessions(): Promise<string[]> {
 
 /** Returns the draft, or null if the session has no draft yet (404). */
 export async function fetchDraft(sessionId: string): Promise<ReportDraftData | null> {
-  const res = await fetch(`/api/assistant/sessions/${encodeURIComponent(sessionId)}/draft`);
+  const res = await fetch(`${apiBase()}/api/assistant/sessions/${encodeURIComponent(sessionId)}/draft`);
   if (res.status === 404) {
     return null;
   }
