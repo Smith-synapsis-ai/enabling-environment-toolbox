@@ -1,12 +1,20 @@
+# NOTE: Amplify's build shell persists the working directory across phases,
+# so each phase re-anchors to the repo root (git toplevel) before cd-ing into
+# frontend/ — a bare `cd frontend` in the build phase fails because preBuild
+# already left the shell inside frontend/.
 version: 1
 frontend:
   phases:
     preBuild:
       commands:
-        - cd frontend && npm ci
+        - cd "$(git rev-parse --show-toplevel)/frontend"
+        - npm ci
     build:
       commands:
-        - cd frontend && npm run build
+        - cd "$(git rev-parse --show-toplevel)/frontend"
+        - npm run build
+        # Return to repo root so artifacts baseDirectory (frontend/dist) resolves
+        - cd "$(git rev-parse --show-toplevel)"
   artifacts:
     baseDirectory: frontend/dist
     files:
