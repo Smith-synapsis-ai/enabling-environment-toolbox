@@ -1,22 +1,23 @@
-"""In-process (SDK) MCP server exposing the EE Toolbox stub tools.
+"""In-process (SDK) MCP server assembling the EE Toolbox agent tools.
 
 Read-only posture: every tool here only reads committed repo data or returns
 canned responses. No tool writes anywhere (full safety hooks are Task A8 --
 do not add write-capable tools to this server).
 
 Tool names as seen by agents (server registered as "ee"):
-  - mcp__ee__ask_user_question   (Triage)         -- stub callback
-  - mcp__ee__corpus_search       (Corpus Search)  -- # STUB: replaced by A4 hybrid retrieval
-  - mcp__ee__evidence_drilldown  (Evidence Drill-Down) -- stub, not yet wired (A4/B1)
+  - mcp__ee__ask_user_question   (Triage)         -- stub callback (real in A6)
+  - mcp__ee__corpus_search       (Corpus Search)  -- REAL A4 hybrid retrieval
+                                                     (see retrieval_tools.py, Step 0)
+  - mcp__ee__get_tool_profile    (full wiki profile by id, A4 / Step 0)
+  - mcp__ee__evidence_drilldown  (Evidence Drill-Down) -- stub, deep corpus is B1
 """
 
-import json
 import logging
 from typing import Any, Awaitable, Callable
 
 from claude_agent_sdk import create_sdk_mcp_server, tool
 
-from agents.corpus_stub import search_corpus
+from agents.retrieval_tools import corpus_search, get_tool_profile
 
 logger = logging.getLogger(__name__)
 
@@ -66,29 +67,9 @@ async def ask_user_question(args: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# corpus_search -- # STUB: replaced by A4 hybrid retrieval
+# corpus_search / get_tool_profile -- REAL A4 hybrid retrieval (Step 0)
+# Implemented in agents/retrieval_tools.py and registered below.
 # ---------------------------------------------------------------------------
-
-@tool(
-    "corpus_search",
-    "Search the EE Toolbox catalog (92 curated enabling-environment tools) "
-    "by keywords. Returns the top matching tools with title, summary, "
-    "pillars, domains, type, stage, geography and source URL.",
-    {"query": str, "top_k": int},
-)
-async def corpus_search(args: dict[str, Any]) -> dict[str, Any]:
-    # STUB: replaced by A4 hybrid retrieval (pgvector + lexical).
-    query = str(args.get("query", "")).strip()
-    top_k = int(args.get("top_k") or 8)
-    top_k = max(1, min(top_k, 20))
-    results = search_corpus(query, top_k=top_k)
-    payload = {
-        "query": query,
-        "retrieval_mode": "keyword-stub (A4 hybrid retrieval pending)",
-        "result_count": len(results),
-        "results": results,
-    }
-    return {"content": [{"type": "text", "text": json.dumps(payload, indent=1)}]}
 
 
 # ---------------------------------------------------------------------------
@@ -97,19 +78,25 @@ async def corpus_search(args: dict[str, Any]) -> dict[str, Any]:
 
 @tool(
     "evidence_drilldown",
-    "Fetch deep evidence for a specific EE Toolbox tool (full profile, "
-    "source-document context). NOTE: backend not yet wired.",
+    "Fetch deep evidence for a specific EE Toolbox tool from the source-"
+    "document evidence corpus. NOTE: backend not yet wired (Task B1). For "
+    "the full wiki profile of a tool, use get_tool_profile instead.",
     {"tool_id": str, "question": str},
 )
 async def evidence_drilldown(args: dict[str, Any]) -> dict[str, Any]:
-    # STUB: deep retrieval lands with A4 (hybrid retrieval) and B1.
+    # STUB: the deep evidence corpus lands with Task B1. Summary-level data
+    # is already available: corpus_search (hybrid retrieval) and
+    # get_tool_profile (full wiki profile) are real.
     return {
         "content": [{
             "type": "text",
             "text": (
-                "drill-down not yet wired (A4/B1). Use the summary-level "
-                "catalog information you already have and state that deeper "
-                "evidence retrieval is pending."
+                "Deep evidence drill-down (source-document corpus) is not yet "
+                "wired -- it arrives with Task B1. For the full wiki profile "
+                "of this tool, call mcp__ee__get_tool_profile with its id; "
+                "otherwise use the summary-level catalog information you "
+                "already have and state that deeper evidence retrieval is "
+                "pending."
             ),
         }]
     }
@@ -119,12 +106,12 @@ def build_ee_mcp_server():
     """Create the in-process MCP server registered as 'ee' on the session."""
     return create_sdk_mcp_server(
         name="ee",
-        version="0.1.0",
-        tools=[ask_user_question, corpus_search, evidence_drilldown],
+        version="0.2.0",
+        tools=[ask_user_question, corpus_search, get_tool_profile, evidence_drilldown],
     )
 
 
 # Fully-qualified tool names for AgentDefinition tool lists.
+# (corpus_search / get_tool_profile names are exported by retrieval_tools.py.)
 TOOL_ASK_USER = "mcp__ee__ask_user_question"
-TOOL_CORPUS_SEARCH = "mcp__ee__corpus_search"
 TOOL_EVIDENCE_DRILLDOWN = "mcp__ee__evidence_drilldown"

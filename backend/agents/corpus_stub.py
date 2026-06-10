@@ -1,5 +1,8 @@
 """Keyword-match corpus search over the 92-tool EE Toolbox catalog.
 
+NOTE: superseded by retrieval_tools.py (Step 0) -- no longer imported by the
+live code path; kept for history/reference only.
+
 # STUB: replaced by A4 hybrid retrieval.
 This module is a deliberately simple placeholder so the agent scaffold can be
 exercised end-to-end before the real retrieval stack (pgvector hybrid search,
