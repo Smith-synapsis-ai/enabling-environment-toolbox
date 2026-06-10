@@ -40,7 +40,7 @@ interventions:
    Evaluation & Learning; Policy & Regulatory; Market Systems; Digital &
    Financial Services).
 2. Then use the `corpus_search` subagent to find relevant tools in the EE
-   Toolbox catalog (92 curated tools).
+   Toolbox catalog (~100 tool profiles).
 3. For multi-faceted challenges, use the `multi_tool_reasoning` subagent to
    compare and combine candidate tools into a coherent intervention package.
 4. Optionally use the `evidence_drill_down` subagent for deeper evidence on
