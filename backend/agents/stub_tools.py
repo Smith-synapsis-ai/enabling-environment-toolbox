@@ -256,6 +256,22 @@ _REPORT_UPDATE_SCHEMA = {
     _REPORT_UPDATE_SCHEMA,
 )
 async def report_update(args: dict[str, Any]) -> dict[str, Any]:
+    # --- A6: reject unknown top-level keys explicitly ---------------------
+    # Previously unknown keys (e.g. "sections" instead of "upsert_sections")
+    # were SILENTLY ignored while the revision still bumped; now the tool
+    # errors out (no save, no revision bump) so the model self-corrects.
+    allowed_keys = set(_REPORT_UPDATE_SCHEMA["properties"])
+    unknown = set(args) - allowed_keys
+    if unknown:
+        return _text_result(
+            "report_update rejected: unknown top-level key(s): "
+            f"{', '.join(sorted(unknown))}. Allowed keys: "
+            f"{', '.join(sorted(allowed_keys))}. The draft was NOT modified "
+            "(revision unchanged). Retry using only allowed keys (e.g. use "
+            "upsert_sections, not sections).",
+            is_error=True,
+        )
+    # --- end A6 ------------------------------------------------------------
     sid = _resolve_session_id(args)
     if not sid:
         return _text_result("No session bound for report tools.", is_error=True)
