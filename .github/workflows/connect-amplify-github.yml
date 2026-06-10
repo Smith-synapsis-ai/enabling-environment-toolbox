@@ -120,7 +120,8 @@ jobs:
             --branch-name main --query 'branch.enableAutoBuild' --output text)
           echo "repository: $REPO"
           echo "main autoBuild: $AUTOBUILD"
-          if [[ "$REPO" != "${{ env.REPO_URL }}" ]]; then
+          # Amplify normalizes the repo URL to lowercase — compare case-insensitively
+          if [[ "$(echo "$REPO" | tr '[:upper:]' '[:lower:]')" != "$(echo "${{ env.REPO_URL }}" | tr '[:upper:]' '[:lower:]')" ]]; then
             echo "::error::Repository not set as expected (got: $REPO)"
             exit 1
           fi
