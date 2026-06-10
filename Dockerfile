@@ -15,7 +15,7 @@ WORKDIR /app
 
 # Install Python dependencies
 COPY backend/requirements.txt /app/backend/requirements.txt
-RUN pip install --no-cache-dir --prefix=/install -r backend/requirements.txt
+RUN pip install --no-cache-dir --timeout 60 --retries 5 --prefix=/install -r backend/requirements.txt
 
 # Download Litestream
 RUN curl -fsSL https://github.com/benbjohnson/litestream/releases/download/v0.3.13/litestream-v0.3.13-linux-amd64.tar.gz \
