@@ -16,11 +16,9 @@ from claude_agent_sdk import AgentDefinition
 
 from agents.model_config import SUBAGENT_MODEL
 from agents.prompt_loader import load_prompt
+from agents.evidence_tools import TOOL_EVIDENCE_DRILLDOWN
 from agents.retrieval_tools import TOOL_CORPUS_SEARCH, TOOL_GET_PROFILE
-from agents.stub_tools import (
-    TOOL_ASK_USER,
-    TOOL_EVIDENCE_DRILLDOWN,
-)
+from agents.stub_tools import TOOL_ASK_USER
 
 
 def build_subagents() -> dict[str, AgentDefinition]:
@@ -69,9 +67,12 @@ def build_subagents() -> dict[str, AgentDefinition]:
         "evidence_drill_down": AgentDefinition(
             description=(
                 "Evidence Drill-Down Specialist. Fetches deeper evidence for "
-                "ONE specific catalog tool (full wiki profile via "
-                "get_tool_profile; source-document evidence corpus is not "
-                "yet wired -- Task B1 -- and may be reported as pending)."
+                "specific catalog tools: full wiki profile via "
+                "get_tool_profile, plus full-text search over the source-"
+                "document evidence corpus (47k+ passages) via "
+                "evidence_drilldown. Every claim it returns carries an "
+                "[RC <result-code>] citation marker resolvable to a handle "
+                "URL."
             ),
             prompt=load_prompt("evidence_drill_down"),
             tools=[TOOL_EVIDENCE_DRILLDOWN, TOOL_GET_PROFILE],

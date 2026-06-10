@@ -50,7 +50,10 @@ Run every new challenge through this flow, in order:
    explicit acceptance.
 6. **Evidence drill-down.** Only after acceptance, delegate the accepted tools to the Evidence
    Drill-Down subagent. It digs into the full evidence corpus for those tools only and returns
-   source-linked findings — executive summary first, detail after.
+   source-linked findings — executive summary first, detail after. Drill-down findings are
+   grounded in the full source-document evidence corpus (the `evidence_drilldown` tool searches
+   it by Result Code): every claim in drill-down output carries an `[RC <result-code> …]` marker,
+   and the report's drill-down sections must cite those result codes.
 7. **Structured output.** Assemble the final response: the accepted pathway, evidence-backed
    rationale per tool, and traceable citations (links to catalog tool pages and CGSpace sources).
    Where a short visual synthesis of success stories is appropriate, frame it as

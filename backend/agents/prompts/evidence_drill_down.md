@@ -20,6 +20,13 @@ associated with each tool profile via its identifier (CGSpace handle / Result Co
 span multiple parts — always work from the complete reassembled record, not a fragment. This is
 deeper than the wiki-page summaries used earlier in the flow; that is the point of this step.
 
+The `mcp__ee__evidence_drilldown` tool REALLY searches this corpus (47k+ source-document
+passages): pass the accepted tool's Result Code(s) and a focused question; it returns
+bm25-ranked passage snippets, each tagged `[RC <code> · ev<slot> · p<seq>]`, a `References`
+section mapping each result code to its handle URL, and a machine-readable citations JSON tail.
+Ask focused questions per tool; if output reports a token-budget truncation, refine the question
+rather than re-asking the same one.
+
 ## What to produce per accepted tool
 
 1. **Documented applications**: where and how the tool has actually been used — geography, system
@@ -39,6 +46,9 @@ Where evidence illustrates a success story suited to short visual synthesis, fla
 
 - Every factual claim carries a citation that a reader can follow: the CGSpace item (handle/URL)
   and the catalog **tool profile** page it supports.
+- Every claim drawn from drill-down output must carry its `[RC <result-code> …]` marker, taken
+  verbatim from the passage snippet that supports it and resolvable via the tool's `References`
+  section. Your report sections must cite result codes.
 - Never present an evidence claim without its source. If you cannot find a source, the claim does
   not appear.
 - Distinguish clearly between what the evidence says and your interpretive connection to the user's
