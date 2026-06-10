@@ -271,25 +271,49 @@ Resources:
         UserData:
           Fn::Base64: !Sub |
             #!/bin/bash
-            set -euo pipefail
+            # NOTE: No set -euo pipefail here.
+            # cloud-init marks the scripts-user module FAILED on any non-zero
+            # exit, which prevents the Docker container from ever starting.
+            # Instead we use explicit error checks and retry loops.
             exec > /var/log/ee-toolbox-userdata.log 2>&1
 
-            # Install Docker (awscli v2 is preinstalled on AL2023)
-            dnf install -y docker
+            log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $*"; }
+
+            log "=== EE Toolbox userdata starting ==="
+
+            # Install Docker (awscli v2 is preinstalled on AL2023).
+            # Retry up to 4 times to handle transient RPM-DB lock contention
+            # (cloud-init's own package phase may hold the lock on first boot).
+            for attempt in 1 2 3 4; do
+              log "dnf install docker - attempt $attempt"
+              dnf install -y docker && break
+              log "dnf install failed (attempt $attempt), sleeping 20s ..."
+              sleep 20
+            done
+
+            if ! command -v docker &>/dev/null; then
+              log "FATAL: docker not installed after 4 attempts - aborting"
+              exit 1
+            fi
+
+            log "Docker installed, enabling service"
             systemctl enable --now docker
             usermod -aG docker ec2-user
 
             # ECR login
+            log "ECR login"
             aws ecr get-login-password --region ${AWS::Region} | \
               docker login --username AWS --password-stdin \
               ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com
 
             # Pull image
+            log "Pulling image ${ImageUri}"
             docker pull ${ImageUri}
 
             mkdir -p /var/log/ee-toolbox
 
             # Run container
+            log "Starting container"
             docker run -d \
               --name ee-toolbox-backend \
               --restart unless-stopped \
@@ -301,7 +325,8 @@ Resources:
               -v /var/log/ee-toolbox:/var/log/ee-toolbox \
               ${ImageUri}
 
-            echo "Container started" >> /var/log/ee-toolbox-startup.log
+            log "=== Container started successfully ==="
+            echo "Container started at $(date -u)" >> /var/log/ee-toolbox-startup.log
         TagSpecifications:
           - ResourceType: instance
             Tags:
