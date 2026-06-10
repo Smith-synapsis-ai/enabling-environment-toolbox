@@ -13,6 +13,16 @@ const BACKOFF_BASE_MS = 1000;
 const BACKOFF_CAP_MS = 30000;
 
 function wsUrl(): string {
+  // Use VITE_API_BASE_URL (the backend API domain) for the WebSocket endpoint.
+  // The Amplify CDN domain (window.location.host) does not proxy /ws/challenge
+  // to the backend — only the API domain (api-ee-toolbox.synapsis-analytics.com)
+  // routes to the EC2 target group that serves the WebSocket.
+  const apiBase = import.meta.env.VITE_API_BASE_URL || '';
+  if (apiBase) {
+    const wsBase = apiBase.replace(/^https:/, 'wss:').replace(/^http:/, 'ws:');
+    return `${wsBase}/ws/challenge`;
+  }
+  // Fallback for local dev where frontend and backend share a host.
   const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
   return `${proto}://${window.location.host}/ws/challenge`;
 }
