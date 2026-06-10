@@ -26,6 +26,8 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from agents import evidence_tools  # noqa: E402
@@ -49,6 +51,14 @@ _SMOKE_DB = Path(
 KNOWN_CODE = "10568-100094"
 KNOWN_URL = "https://hdl.handle.net/10568/100094"
 SECOND_CODE = "10568-100095"
+
+# DB-dependent tests (sections a-e) skip cleanly when the smoke DB is absent
+# (it is a 1.87 GB corpus artifact, intentionally not committed to the repo).
+# The synthetic budget unit tests (section f) always run.
+_requires_smoke_db = pytest.mark.skipif(
+    not _SMOKE_DB.exists(),
+    reason="evidence_smoke.db not present — skipping evidence drilldown tests (environment-only)",
+)
 
 
 def _call(args: dict) -> dict:
@@ -77,6 +87,7 @@ def _references_section(text: str) -> str:
 # (a) happy path: markers, References, citations JSON
 # ---------------------------------------------------------------------------
 
+@_requires_smoke_db
 def test_happy_path_markers_references_citations():
     result = _call({
         "tool_id": KNOWN_CODE,
@@ -121,6 +132,7 @@ def test_happy_path_markers_references_citations():
 # (b) multi-code arrays + id normalization variants
 # ---------------------------------------------------------------------------
 
+@_requires_smoke_db
 def test_multi_code_real_array():
     result = _call({
         "tool_id": [KNOWN_CODE, SECOND_CODE],
@@ -137,6 +149,7 @@ def test_multi_code_real_array():
     print(f"(b) real array: cited codes = {sorted(cited)}")
 
 
+@_requires_smoke_db
 def test_multi_code_json_string_array():
     """SDK harness workaround: array serialized as a JSON-encoded STRING."""
     result = _call({
@@ -151,6 +164,7 @@ def test_multi_code_json_string_array():
     print(f"(b) JSON-string array: cited codes = {sorted(cited)}")
 
 
+@_requires_smoke_db
 def test_id_normalization_variants():
     """'10568/100094' and the full handle URL normalize to the same code."""
     for variant in ("10568/100094", f"https://hdl.handle.net/10568/100094"):
@@ -169,6 +183,7 @@ def test_id_normalization_variants():
 # (c) unknown code -> is_error naming the bad id
 # ---------------------------------------------------------------------------
 
+@_requires_smoke_db
 def test_unknown_code_is_error():
     bad = "10568-999999999"
     result = _call({"tool_id": bad, "question": "anything at all"})
@@ -178,6 +193,7 @@ def test_unknown_code_is_error():
     print(f"(c) unknown code error text: {text}")
 
 
+@_requires_smoke_db
 def test_unknown_code_mixed_with_known_is_error():
     bad = "10568-999999999"
     result = _call({
@@ -193,6 +209,7 @@ def test_unknown_code_mixed_with_known_is_error():
 # (d) FTS miss -> leading-passages fallback with explicit note
 # ---------------------------------------------------------------------------
 
+@_requires_smoke_db
 def test_fts_miss_falls_back_to_leading_passages():
     result = _call({
         "tool_id": KNOWN_CODE,
@@ -215,6 +232,7 @@ def test_fts_miss_falls_back_to_leading_passages():
 # (e) tight budget truncation (max_tokens=600)
 # ---------------------------------------------------------------------------
 
+@_requires_smoke_db
 def test_budget_truncation_max_tokens_600():
     result = _call({
         "tool_id": KNOWN_CODE,
