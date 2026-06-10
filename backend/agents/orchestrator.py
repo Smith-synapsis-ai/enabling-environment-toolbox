@@ -73,6 +73,18 @@ from agents.memory_tools import MEMORY_TOOL_NAMES, build_memory_mcp_server
 from agents.safety_hooks import build_safety_hooks
 # --- end A8 wiring ---
 
+# --- coordinator (Wave 3 merge): swap default report store to SQLite (A7) ---
+# A5 ships JsonFileReportStore as its default; the wave3-interfaces contract
+# says the coordinator swaps in A7's SqliteReportStore at merge time so report
+# drafts live in the same agent_store.db as sessions/messages/memories.
+# SqliteReportStore is self-initializing (ensure_db per call), so a plain
+# module-level swap is sufficient.
+from persistence.store import SqliteReportStore
+from agents.report_state import set_report_store
+
+set_report_store(SqliteReportStore())
+# --- end coordinator ---
+
 logger = logging.getLogger(__name__)
 
 REPO_ROOT: Path = Path(__file__).resolve().parents[2]
