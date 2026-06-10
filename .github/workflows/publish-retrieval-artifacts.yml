@@ -64,6 +64,41 @@ jobs:
           aws s3api put-public-access-block --bucket "$BUCKET" \
             --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
 
+      # Cross-account read: the backend EC2 instances run in the sandbox/dev/tst
+      # accounts, whose IAM identity policies alone CANNOT grant access to a
+      # bucket owned by ai-prod — a resource (bucket) policy is also required.
+      # Without this, artifact cold-load fails with AccessDenied and the
+      # container crash-loops (seen 2026-06-10: ASG churned instances every
+      # ~6 min because /health never came up). Not a public policy, so
+      # BlockPublicPolicy=true does not interfere.
+      - name: Set cross-account read bucket policy
+        run: |
+          cat > /tmp/bucket-policy.json <<'POLICY'
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Sid": "CrossAccountRetrievalRead",
+                "Effect": "Allow",
+                "Principal": {
+                  "AWS": [
+                    "arn:aws:iam::919959486181:root",
+                    "arn:aws:iam::972793825893:root",
+                    "arn:aws:iam::053142643230:root"
+                  ]
+                },
+                "Action": ["s3:GetObject", "s3:ListBucket"],
+                "Resource": [
+                  "arn:aws:s3:::ee-toolbox-retrieval-207258148366",
+                  "arn:aws:s3:::ee-toolbox-retrieval-207258148366/*"
+                ]
+              }
+            ]
+          }
+          POLICY
+          aws s3api put-bucket-policy --bucket "$BUCKET" --policy file:///tmp/bucket-policy.json
+          aws s3api get-bucket-policy --bucket "$BUCKET" --query Policy --output text
+
       - name: Download evidence corpus release asset
         env:
           GH_TOKEN: ${{ github.token }}
