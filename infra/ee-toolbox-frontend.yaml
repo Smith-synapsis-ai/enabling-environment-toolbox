@@ -57,7 +57,7 @@ Resources:
       CustomRules:
         - Source: "/<*>"
           Target: /index.html
-          Status: "404-200"
+          Status: "200"
       EnvironmentVariables:
         - Name: VITE_API_BASE_URL
           Value: !Ref APIUrl

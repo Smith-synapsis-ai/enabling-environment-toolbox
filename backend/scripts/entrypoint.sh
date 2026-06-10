@@ -7,7 +7,9 @@ date -u
 # ── Fetch API keys from Secrets Manager ──────────────────────────────────────
 # The EC2 InstanceRole has secretsmanager:GetSecretValue on this secret.
 # Fetched via boto3 (no aws CLI in the image).
-SECRET_NAME="${EE_SECRET_NAME:-ee-toolbox-api-keys-vQs462}"
+# NOTE: the secret's friendly NAME is "ee-toolbox-api-keys"; -vQs462 is only
+# the ARN suffix and is NOT accepted as a SecretId by Secrets Manager.
+SECRET_NAME="${EE_SECRET_NAME:-ee-toolbox-api-keys}"
 echo "Fetching API keys from Secrets Manager: $SECRET_NAME"
 SECRET_JSON=$(python3 -c "
 import boto3
