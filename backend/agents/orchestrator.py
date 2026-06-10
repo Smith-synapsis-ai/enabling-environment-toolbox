@@ -69,6 +69,10 @@ from agents.stub_tools import (
 from agents.memory_tools import MEMORY_TOOL_NAMES, build_memory_mcp_server
 # --- end A7 wiring ---
 
+# --- A8 wiring ---
+from agents.safety_hooks import build_safety_hooks
+# --- end A8 wiring ---
+
 logger = logging.getLogger(__name__)
 
 REPO_ROOT: Path = Path(__file__).resolve().parents[2]
@@ -161,6 +165,12 @@ def build_options(
         cwd=str(REPO_ROOT),
         session_id=None if resume_from else session_id,
         resume=resume_from,
+        # --- A8 wiring ---
+        # Programmatic read-only enforcement + JSONL audit (Task A8). Hooks
+        # fire regardless of permission_mode="bypassPermissions", so they are
+        # the enforcement layer; bypassPermissions stays.
+        hooks=build_safety_hooks(session_id),
+        # --- end A8 wiring ---
     )
 
 
