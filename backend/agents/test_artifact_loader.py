@@ -121,3 +121,43 @@ def test_cache_hit_skips_download(monkeypatch, tmp_path):
     assert paths["embeddings"] == ver_dir / "embeddings.npy"
     assert paths["evidence_db"] == ver_dir / "evidence_corpus.db"
     assert paths["evidence_db"].read_bytes() == db_bytes
+
+
+def test_wal_settle_after_decompress(tmp_path, monkeypatch):
+    """After _decompress_zst, the DB must be openable in read-only URI mode."""
+    import sqlite3
+    import zstandard
+
+    # Create a minimal WAL-mode SQLite DB
+    src_db = tmp_path / "test.db"
+    con = sqlite3.connect(str(src_db))
+    con.execute("PRAGMA journal_mode=WAL")
+    con.execute("CREATE TABLE t (id INTEGER PRIMARY KEY)")
+    con.execute("INSERT INTO t VALUES (1)")
+    con.commit()
+    con.close()
+
+    # Compress it
+    src_zst = tmp_path / "test.db.zst"
+    cctx = zstandard.ZstdCompressor(level=1)
+    with src_db.open("rb") as f_in, src_zst.open("wb") as f_out:
+        cctx.copy_stream(f_in, f_out)
+
+    # Remove the original so only the .zst exists
+    src_db.unlink()
+
+    # Remove any WAL sidecars if they exist
+    for sidecar in [tmp_path / "test.db-wal", tmp_path / "test.db-shm"]:
+        if sidecar.exists():
+            sidecar.unlink()
+
+    # Decompress (this calls _decompress_zst which should apply WAL settle fix)
+    from agents.artifact_loader import _decompress_zst
+    dest = tmp_path / "output.db"
+    _decompress_zst(src_zst, dest)
+
+    # Must be openable in read-only mode without error
+    con2 = sqlite3.connect(f"file:{dest}?mode=ro", uri=True)
+    count = con2.execute("SELECT COUNT(*) FROM t").fetchone()[0]
+    assert count == 1
+    con2.close()

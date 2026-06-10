@@ -156,6 +156,12 @@ def _decompress_zst(src: Path, dest: Path) -> None:
         dctx.copy_stream(f_in, f_out)
     tmp.replace(dest)  # atomic publish — no half-written DB visible
 
+    # Settle WAL sidecars — freshly decompressed WAL-mode DB fails mode=ro until
+    # a rw open initializes the -shm and -wal files.
+    import sqlite3 as _sqlite3
+    with _sqlite3.connect(str(dest)) as _conn:
+        _conn.execute("PRAGMA integrity_check(1)")
+
 
 def ensure_artifacts() -> dict[str, Path]:
     """Resolve (and if needed, cold-load) all retrieval + evidence artifacts.

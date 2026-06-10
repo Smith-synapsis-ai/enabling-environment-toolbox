@@ -1,48 +1,68 @@
 # =============================================================================
-# EE Toolbox Backend - Multi-stage Dockerfile
+# EE Toolbox Backend - Multi-stage Dockerfile (B2: EC2 ASG runtime)
 # =============================================================================
 
 # ---------------------------------------------------------------------------
-# Stage 1: Builder - install Python dependencies
+# Stage 1: Builder - install Python dependencies + fetch Litestream
 # ---------------------------------------------------------------------------
 FROM python:3.11-slim AS builder
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends gcc libpq-dev && \
-    rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc curl \
+    && rm -rf /var/lib/apt/lists/*
 
-COPY backend/requirements.txt /tmp/requirements.txt
+WORKDIR /app
 
-RUN pip install --prefix=/install --no-cache-dir -r /tmp/requirements.txt
+# Install Python dependencies
+COPY backend/requirements.txt /app/backend/requirements.txt
+RUN pip install --no-cache-dir --prefix=/install -r backend/requirements.txt
+
+# Download Litestream
+RUN curl -fsSL https://github.com/benbjohnson/litestream/releases/download/v0.3.13/litestream-v0.3.13-linux-amd64.tar.gz \
+    | tar -xz -C /usr/local/bin litestream \
+    && chmod +x /usr/local/bin/litestream
 
 # ---------------------------------------------------------------------------
 # Stage 2: Runtime - lean production image
 # ---------------------------------------------------------------------------
 FROM python:3.11-slim AS runtime
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends libpq5 curl && \
-    rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy installed Python packages from builder
+# Copy installed packages
 COPY --from=builder /install /usr/local
 
-# Copy application code
+# Copy Litestream binary
+COPY --from=builder /usr/local/bin/litestream /usr/local/bin/litestream
+
+# Create non-root user
+RUN useradd -m -u 1001 appuser
+
+WORKDIR /app
+
+# Copy application code (NOT data/ — retrieval artifacts cold-load from S3 at startup)
 COPY backend/ /app/backend/
 COPY pipeline/ /app/pipeline/
-COPY data/ /app/data/
+
+# Create data directory for runtime artifacts (populated at startup from S3)
+RUN mkdir -p /app/backend/data /app/data && chown -R appuser:appuser /app
+
+# Copy Litestream config
+COPY litestream.yml /etc/litestream.yml
 
 # Make entrypoint executable
 RUN chmod +x /app/backend/scripts/entrypoint.sh
 
-# Set PYTHONPATH so "from app.database..." (backend) and "from pipeline..." resolve
+# Set PYTHONPATH so "from app...." (backend) and "from pipeline..." resolve
 ENV PYTHONPATH=/app/backend:/app
 
-WORKDIR /app
+USER appuser
 
 EXPOSE 8099
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
     CMD curl -f http://localhost:8099/health || exit 1
 
 CMD ["/app/backend/scripts/entrypoint.sh"]

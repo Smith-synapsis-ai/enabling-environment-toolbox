@@ -1,6 +1,12 @@
+# Data — NEVER bake the 1.87 GB evidence corpus into the image (B2)
+data/
+backend/data/
+
 # Directories not needed in Docker build context
 frontend/
 node_modules/
+frontend/node_modules/
+frontend/.next/
 .git/
 .github/
 infra/
@@ -13,10 +19,19 @@ infra/
 
 # Python
 __pycache__/
+**/__pycache__/
 *.pyc
+**/*.pyc
+**/*.pyo
+*.egg-info/
 .venv/
 venv/
 .pytest_cache/
+**/.pytest_cache/
+
+# Tests — not needed at runtime
+**/*.test.js
+**/test_*.py
 
 # Docker
 ee_toolbox_pgdata/

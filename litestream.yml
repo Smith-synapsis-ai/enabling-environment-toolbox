@@ -1,0 +1,8 @@
+dbs:
+  - path: /app/backend/data/agent_store.db
+    replicas:
+      - type: s3
+        bucket: ee-toolbox-sessions-919959486181
+        path: agent_store
+        region: eu-central-1
+        sync-interval: 1s
