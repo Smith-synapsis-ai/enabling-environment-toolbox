@@ -47,6 +47,9 @@ from agents.stub_tools import (
     TOOL_EVIDENCE_DRILLDOWN,
     build_ee_mcp_server,
 )
+# --- A7 wiring ---
+from agents.memory_tools import MEMORY_TOOL_NAMES, build_memory_mcp_server
+# --- end A7 wiring ---
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +81,9 @@ _ALLOWED_TOOLS = [
     TOOL_GET_PROFILE,
     TOOL_EVIDENCE_DRILLDOWN,
 ]
+# --- A7 wiring ---
+_ALLOWED_TOOLS += MEMORY_TOOL_NAMES
+# --- end A7 wiring ---
 
 _PROMPT_NAMES = (
     "orchestrator",
@@ -104,7 +110,12 @@ def build_options(session_id: str) -> ClaudeAgentOptions:
         model=ORCHESTRATOR_MODEL,
         system_prompt=load_prompt("orchestrator"),
         agents=build_subagents(),
-        mcp_servers={"ee": build_ee_mcp_server()},
+        mcp_servers={
+            "ee": build_ee_mcp_server(),
+            # --- A7 wiring ---
+            "memory": build_memory_mcp_server(),
+            # --- end A7 wiring ---
+        },
         allowed_tools=_ALLOWED_TOOLS,
         disallowed_tools=_DISALLOWED_TOOLS,
         permission_mode="bypassPermissions",
