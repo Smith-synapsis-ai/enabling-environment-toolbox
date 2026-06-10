@@ -4,8 +4,8 @@ Four Sonnet specialists registered as Claude Agent SDK subagents on the
 orchestrator session. The orchestrator (Opus) routes work to them via the
 Task tool, guided by each AgentDefinition's description.
 
-Read-only posture: every subagent gets ONLY the stub MCP tools it needs --
-no Write/Edit/Bash. Full safety hooks land with Task A8.
+Read-only posture: every subagent gets ONLY the read-only "ee" MCP tools it
+needs -- no Write/Edit/Bash. Full safety hooks land with Task A8.
 
 System prompts are loaded from backend/agents/prompts/<name>.md (authored
 by the parallel A3 workstream) with inline FALLBACK_PROMPT placeholders
@@ -16,9 +16,9 @@ from claude_agent_sdk import AgentDefinition
 
 from agents.model_config import SUBAGENT_MODEL
 from agents.prompt_loader import load_prompt
+from agents.retrieval_tools import TOOL_CORPUS_SEARCH, TOOL_GET_PROFILE
 from agents.stub_tools import (
     TOOL_ASK_USER,
-    TOOL_CORPUS_SEARCH,
     TOOL_EVIDENCE_DRILLDOWN,
 )
 
@@ -34,9 +34,9 @@ def build_subagents() -> dict[str, AgentDefinition]:
             description=(
                 "Triage Specialist. ALWAYS invoke FIRST for every new scaling "
                 "challenge: restates the challenge, identifies innovation, "
-                "actors, geography and binding constraints, maps it to the 5 "
-                "EE pillars, and produces search keywords. May ask the user "
-                "one clarifying question."
+                "actors, geography and binding constraints, maps it to the "
+                "eight EE pillars, and produces search keywords. May ask the "
+                "user one clarifying question."
             ),
             prompt=load_prompt("triage"),
             tools=[TOOL_ASK_USER],
@@ -45,12 +45,13 @@ def build_subagents() -> dict[str, AgentDefinition]:
         "corpus_search": AgentDefinition(
             description=(
                 "Corpus Search Specialist. Retrieves relevant tools from the "
-                "92-tool EE Toolbox catalog given a triaged challenge or "
-                "keywords. Use AFTER triage; returns a deduplicated candidate "
-                "list of tools with relevance rationale."
+                "100-tool EE Toolbox catalog via hybrid semantic + keyword "
+                "retrieval with relevance scores, given a triaged challenge "
+                "or keywords. Use AFTER triage; returns a deduplicated "
+                "candidate list of tools with relevance rationale."
             ),
             prompt=load_prompt("corpus_search"),
-            tools=[TOOL_CORPUS_SEARCH],
+            tools=[TOOL_CORPUS_SEARCH, TOOL_GET_PROFILE],
             model=SUBAGENT_MODEL,
         ),
         "multi_tool_reasoning": AgentDefinition(
@@ -62,18 +63,18 @@ def build_subagents() -> dict[str, AgentDefinition]:
                 "the challenge spans multiple pillars or constraints."
             ),
             prompt=load_prompt("multi_tool_reasoning"),
-            tools=[TOOL_CORPUS_SEARCH],
+            tools=[TOOL_CORPUS_SEARCH, TOOL_GET_PROFILE],
             model=SUBAGENT_MODEL,
         ),
         "evidence_drill_down": AgentDefinition(
             description=(
                 "Evidence Drill-Down Specialist. Fetches deeper evidence for "
-                "ONE specific catalog tool (full profile, source-document "
-                "context). Optional; backend not yet wired (A4/B1) and may "
-                "report that deep retrieval is pending."
+                "ONE specific catalog tool (full wiki profile via "
+                "get_tool_profile; source-document evidence corpus is not "
+                "yet wired -- Task B1 -- and may be reported as pending)."
             ),
             prompt=load_prompt("evidence_drill_down"),
-            tools=[TOOL_EVIDENCE_DRILLDOWN],
+            tools=[TOOL_EVIDENCE_DRILLDOWN, TOOL_GET_PROFILE],
             model=SUBAGENT_MODEL,
         ),
     }

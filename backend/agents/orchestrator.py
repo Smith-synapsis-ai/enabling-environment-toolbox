@@ -41,9 +41,9 @@ from claude_agent_sdk import (
 from agents.definitions import build_subagents
 from agents.model_config import ORCHESTRATOR_MODEL, SUBAGENT_MODEL
 from agents.prompt_loader import load_prompt, prompt_source
+from agents.retrieval_tools import TOOL_CORPUS_SEARCH, TOOL_GET_PROFILE
 from agents.stub_tools import (
     TOOL_ASK_USER,
-    TOOL_CORPUS_SEARCH,
     TOOL_EVIDENCE_DRILLDOWN,
     build_ee_mcp_server,
 )
@@ -75,6 +75,7 @@ _ALLOWED_TOOLS = [
     "TodoWrite",
     TOOL_ASK_USER,
     TOOL_CORPUS_SEARCH,
+    TOOL_GET_PROFILE,
     TOOL_EVIDENCE_DRILLDOWN,
 ]
 
