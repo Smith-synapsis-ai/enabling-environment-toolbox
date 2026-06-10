@@ -372,14 +372,15 @@ Resources:
 
   # ---------------------------------------------------------------------------
   # Target Group (instance targets, sticky sessions for SSE/agent state)
-  # NOTE: renamed from ee-toolbox-tg — changing TargetType ip -> instance
-  # forces replacement, and CloudFormation creates the new TG before deleting
-  # the old one, so the old explicit name cannot be reused.
+  # NOTE: no explicit Name. Changing TargetType (ip -> instance) is an
+  # immutable-property update that forces replacement, and CloudFormation
+  # creates the new TG before deleting the old one — any fixed name collides
+  # with the existing TG ("already exists", seen 2026-06-10 with
+  # ee-toolbox-mgmt-tg). A CF-generated name lets the swap succeed.
   # ---------------------------------------------------------------------------
   TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: !Sub "ee-toolbox-${Environment}-tg"
       Port: 8099
       Protocol: HTTP
       TargetType: instance
