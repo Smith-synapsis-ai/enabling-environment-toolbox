@@ -70,7 +70,8 @@ _DISALLOWED_TOOLS = [
 ]
 
 _ALLOWED_TOOLS = [
-    "Task",
+    "Task",   # subagent dispatch (older CLI name)
+    "Agent",  # subagent dispatch (current CLI name)
     "TodoWrite",
     TOOL_ASK_USER,
     TOOL_CORPUS_SEARCH,
@@ -170,7 +171,9 @@ async def run_challenge(
                         final_text_parts.append(block.text)
                         yield {"type": "orchestrator_text", "text": block.text}
                 elif isinstance(block, ToolUseBlock):
-                    if block.name == "Task":
+                    # Subagent dispatch tool: named "Task" historically,
+                    # "Agent" in current CLI builds -- accept both.
+                    if block.name in ("Task", "Agent"):
                         yield {
                             "type": "subagent_invocation",
                             "tool_use_id": block.id,
