@@ -1,0 +1,93 @@
+name: Deploy Infra (B2)
+
+# ==============================================================================
+# Deploys the CloudFormation stacks for the B2 EC2 ASG architecture:
+#   - ee-toolbox-app       (ALB + EC2 Auto Scaling Group + Litestream bucket)
+#   - ee-toolbox-frontend  (Amplify app, SPA rewrite)
+#
+# Also pushes the current API keys into the pre-existing Secrets Manager
+# secret "ee-toolbox-api-keys" (its value is intentionally NOT managed by
+# CloudFormation so plaintext keys never appear in templates or stack events).
+#
+# Manual dispatch only. The "mgmt" GitHub environment holds:
+#   AWS_DEPLOY_ROLE_ARN, ANTHROPIC_API_KEY, OPENAI_API_KEY
+# ==============================================================================
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        type: choice
+        options:
+          - mgmt
+        default: mgmt
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy-infra:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env:
+      AWS_REGION: eu-central-1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update API keys in Secrets Manager
+        run: |
+          aws secretsmanager put-secret-value \
+            --secret-id ee-toolbox-api-keys \
+            --secret-string '{"ANTHROPIC_API_KEY":"${{ secrets.ANTHROPIC_API_KEY }}","OPENAI_API_KEY":"${{ secrets.OPENAI_API_KEY }}"}' \
+            --region "$AWS_REGION"
+
+      - name: Deploy application stack (ee-toolbox-app)
+        run: |
+          aws cloudformation deploy \
+            --stack-name ee-toolbox-app \
+            --template-file infra/ee-toolbox-app.yaml \
+            --parameter-overrides \
+              Environment=${{ inputs.environment }} \
+              VpcId=vpc-024b5db1d38ced3a7 \
+              SubnetIds="subnet-04fab9f22fe889781,subnet-0e77bf3abe86ca9db,subnet-04e0659a8cfefb1b5" \
+              CertificateArn=arn:aws:acm:eu-central-1:919959486181:certificate/4d7e0a95-d953-4374-8b53-b5a94839180e \
+              ImageUri=919959486181.dkr.ecr.eu-central-1.amazonaws.com/ee-toolbox-backend:latest \
+              EERetrievalS3=s3://ee-toolbox-retrieval-207258148366 \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+            --region "$AWS_REGION" \
+            --no-fail-on-empty-changeset
+
+      - name: Deploy frontend stack (ee-toolbox-frontend)
+        run: |
+          API_URL="https://api-ee-toolbox.synapsis-analytics.com"
+          aws cloudformation deploy \
+            --stack-name ee-toolbox-frontend \
+            --template-file infra/ee-toolbox-frontend.yaml \
+            --parameter-overrides APIUrl=$API_URL \
+            --capabilities CAPABILITY_IAM \
+            --region "$AWS_REGION" \
+            --no-fail-on-empty-changeset
+
+      - name: Verify stack status
+        run: |
+          for STACK in ee-toolbox-app ee-toolbox-frontend; do
+            STATUS=$(aws cloudformation describe-stacks \
+              --stack-name "$STACK" \
+              --region "$AWS_REGION" \
+              --query 'Stacks[0].StackStatus' --output text)
+            echo "$STACK: $STATUS"
+            case "$STATUS" in
+              *COMPLETE*) ;;
+              *) echo "Stack $STACK is not in a COMPLETE state"; exit 1 ;;
+            esac
+          done
