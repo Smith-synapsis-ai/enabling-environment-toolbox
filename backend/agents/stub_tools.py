@@ -187,11 +187,13 @@ _REPORT_UPDATE_SCHEMA = {
             "description": "Set/replace the one-paragraph challenge summary.",
         },
         "upsert_sections": {
-            "type": "array",
+            "type": ["array", "string"],
             "description": (
                 "Sections to add or update by id. Each item: {id, heading, "
                 "body_md, sources?: [links]}. Existing sections with the same "
-                "id are updated in place; others are appended."
+                "id are updated in place; others are appended. A JSON-encoded "
+                "string of the same array is also accepted (harness "
+                "workaround) and decoded server-side."
             ),
             "items": {
                 "type": "object",
@@ -205,15 +207,20 @@ _REPORT_UPDATE_SCHEMA = {
             },
         },
         "remove_section_ids": {
-            "type": "array",
+            "type": ["array", "string"],
             "items": {"type": "string"},
-            "description": "Section ids to remove.",
+            "description": (
+                "Section ids to remove. A JSON-encoded string of the same "
+                "array is also accepted and decoded server-side."
+            ),
         },
         "upsert_candidate_tools": {
-            "type": "array",
+            "type": ["array", "string"],
             "description": (
                 "Candidate-tool entries to add or update by id. Each item: "
-                "{id, title?, status?: candidate|accepted|rejected}."
+                "{id, title?, status?: candidate|accepted|rejected}. A JSON-"
+                "encoded string of the same array is also accepted (harness "
+                "workaround) and decoded server-side."
             ),
             "items": {
                 "type": "object",
@@ -229,9 +236,13 @@ _REPORT_UPDATE_SCHEMA = {
             },
         },
         "remove_tool_ids": {
-            "type": "array",
+            "type": ["array", "string"],
             "items": {"type": "string"},
-            "description": "Candidate-tool ids to remove from the draft.",
+            "description": (
+                "Candidate-tool ids to remove from the draft. A JSON-encoded "
+                "string of the same array is also accepted and decoded "
+                "server-side."
+            ),
         },
         "changelog_summary": {
             "type": "string",
@@ -243,6 +254,56 @@ _REPORT_UPDATE_SCHEMA = {
     },
     "required": ["changelog_summary"],
 }
+
+# Array-typed report_update params that the SDK tool harness has been observed
+# to serialize as JSON-encoded STRINGS (A6 live-run defect: "not of type
+# array" rejections left the draft stuck at revision 1). _coerce_array_params
+# decodes such strings back to lists before the patch is applied (A10 fix,
+# sibling to the A6 unknown-key rejection).
+_ARRAY_PARAMS = (
+    "upsert_sections",
+    "remove_section_ids",
+    "upsert_candidate_tools",
+    "remove_tool_ids",
+)
+
+
+def _coerce_array_params(args: dict[str, Any]) -> tuple[dict[str, Any], str | None]:
+    """Decode JSON-string values for array params; never mutates the input.
+
+    Returns (coerced_args, error_message). error_message is None on success;
+    on failure the caller must reject the call WITHOUT modifying the draft.
+    """
+    coerced = dict(args)
+    for key in _ARRAY_PARAMS:
+        value = coerced.get(key)
+        if value is None or isinstance(value, list):
+            continue
+        if not isinstance(value, str):
+            return coerced, (
+                f"report_update rejected: '{key}' must be a JSON array (or a "
+                f"JSON-encoded string of one), got {type(value).__name__}."
+            )
+        try:
+            decoded = json.loads(value)
+        except json.JSONDecodeError as exc:
+            return coerced, (
+                f"report_update rejected: '{key}' was a string that is not "
+                f"valid JSON ({exc.msg} at pos {exc.pos}). Pass a JSON array, "
+                f"e.g. {key}=[{{...}}]."
+            )
+        if not isinstance(decoded, list):
+            return coerced, (
+                f"report_update rejected: '{key}' decoded to "
+                f"{type(decoded).__name__}, expected a JSON array."
+            )
+        coerced[key] = decoded
+        logger.info(
+            "report_update: coerced %s from JSON string to array (%d items)",
+            key,
+            len(decoded),
+        )
+    return coerced, None
 
 
 @tool(
@@ -272,6 +333,17 @@ async def report_update(args: dict[str, Any]) -> dict[str, Any]:
             is_error=True,
         )
     # --- end A6 ------------------------------------------------------------
+    # --- A10: coerce JSON-string array params back to arrays ---------------
+    # The SDK tool harness sometimes serializes array params as JSON-encoded
+    # strings ("not of type array" in the A6 live run). Decode them here; on
+    # any decode failure reject explicitly (no save, no revision bump).
+    args, coercion_error = _coerce_array_params(args)
+    if coercion_error:
+        return _text_result(
+            coercion_error + " The draft was NOT modified (revision unchanged).",
+            is_error=True,
+        )
+    # --- end A10 ------------------------------------------------------------
     sid = _resolve_session_id(args)
     if not sid:
         return _text_result("No session bound for report tools.", is_error=True)
