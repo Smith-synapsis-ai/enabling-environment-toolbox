@@ -1,0 +1,103 @@
+import { FileText, RefreshCw } from 'lucide-react';
+import type { ReportDraftData } from '../../types/assistant';
+import Markdown from './Markdown';
+
+interface ReportPanelProps {
+  draft: ReportDraftData | null;
+  loading: boolean;
+  /** toggled briefly after a report_update result to flash the panel */
+  flash: boolean;
+  error: string | null;
+}
+
+const STATUS_STYLES: Record<string, string> = {
+  accepted: 'bg-green-100 text-green-800 border-green-300',
+  rejected: 'bg-red-100 text-red-700 border-red-300',
+  candidate: 'bg-amber-50 text-amber-800 border-amber-300',
+};
+
+/** Live report-draft panel: rendered markdown + revision badge + tool status. */
+export default function ReportPanel({ draft, loading, flash, error }: ReportPanelProps) {
+  return (
+    <div
+      className={`h-full flex flex-col rounded-2xl bg-white shadow-xl overflow-hidden transition-shadow duration-500 ${
+        flash ? 'ring-4 ring-cgiar-accent shadow-cgiar-accent/40' : 'ring-1 ring-black/5'
+      }`}
+    >
+      {/* Panel header */}
+      <div className="flex items-center gap-2 px-4 py-3 bg-cgiar-dark text-white shrink-0">
+        <FileText size={16} className="text-cgiar-accent" aria-hidden="true" />
+        <h2 className="text-sm font-semibold flex-1">Report draft</h2>
+        {loading && <RefreshCw size={14} className="animate-spin text-white/60" aria-label="refreshing" />}
+        {draft && (
+          <span
+            className={`text-[11px] font-mono rounded-full px-2 py-0.5 border ${
+              flash ? 'bg-cgiar-accent text-cgiar-dark border-cgiar-accent' : 'bg-white/10 border-white/20'
+            }`}
+          >
+            rev {draft.revision}
+          </span>
+        )}
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto p-4">
+        {error && (
+          <div className="mb-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-xs p-2">
+            {error}
+          </div>
+        )}
+
+        {!draft && !error && (
+          <p className="text-sm text-gray-400 italic mt-4 text-center">
+            No report draft yet — describe your scaling challenge to start one.
+          </p>
+        )}
+
+        {draft && (
+          <>
+            {/* Candidate tools status list */}
+            {draft.candidate_tools.length > 0 && (
+              <div className="mb-4">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
+                  Candidate tools
+                </h3>
+                <ul className="space-y-1">
+                  {draft.candidate_tools.map(t => (
+                    <li key={t.id} className="flex items-center gap-2 text-sm">
+                      <span
+                        className={`text-[10px] font-medium uppercase rounded-full border px-1.5 py-0.5 ${
+                          STATUS_STYLES[t.status] || STATUS_STYLES.candidate
+                        }`}
+                      >
+                        {t.status}
+                      </span>
+                      <span className="text-gray-700 truncate">{t.title}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <Markdown tone="light">{draft.rendered_markdown}</Markdown>
+
+            {draft.changelog.length > 0 && (
+              <div className="mt-4 pt-3 border-t border-gray-100">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1.5">
+                  Changelog
+                </h3>
+                <ul className="space-y-0.5">
+                  {draft.changelog.slice(-5).reverse().map(c => (
+                    <li key={c.revision} className="text-xs text-gray-500">
+                      <span className="font-mono text-gray-400">r{c.revision}</span> — {c.summary}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

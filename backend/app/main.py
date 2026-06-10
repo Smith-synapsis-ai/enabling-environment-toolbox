@@ -21,6 +21,7 @@ from app.models import (  # noqa: F401
 
 # Import routers
 from app.routers import search, chat, tools, metrics, admin, admin_analytics, pulse_survey
+from app.routers import assistant
 
 # Import services
 from app.services.tracking import TrackingService
@@ -99,6 +100,7 @@ app.include_router(metrics.router, prefix="/api", tags=["Metrics"])
 app.include_router(admin.router, prefix="/api", tags=["Admin"])
 app.include_router(admin_analytics.router, prefix="/api", tags=["Admin Analytics"])
 app.include_router(pulse_survey.router, prefix="/api", tags=["Pulse Survey"])
+app.include_router(assistant.router, tags=["Assistant"])  # carries own /api + /ws paths
 
 # ---------------------------------------------------------------------------
 # Health check

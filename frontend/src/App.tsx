@@ -8,6 +8,7 @@ import AboutPage from './pages/AboutPage';
 import TutorialPage from './pages/TutorialPage';
 import CatalogPage from './pages/CatalogPage';
 import AdminPage from './pages/AdminPage';
+import AssistantPage from './pages/AssistantPage';
 
 /** Capture UTM parameters from the URL on first load and persist in sessionStorage. */
 function captureUtmParams() {
@@ -63,6 +64,7 @@ function AppContent() {
           <Route path="/about" element={<AboutPage />} />
           <Route path="/tutorial" element={<TutorialPage />} />
           <Route path="/catalog" element={<CatalogPage onToolViewed={handleToolViewed} />} />
+          <Route path="/assistant" element={<AssistantPage />} />
           <Route path="/admin" element={<AdminPage />} />
         </Routes>
       </main>

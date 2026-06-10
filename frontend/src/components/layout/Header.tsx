@@ -14,6 +14,7 @@ export default function Header() {
     { to: '/about', label: 'About' },
     { to: '/tutorial', label: 'Tutorial' },
     { to: '/catalog', label: 'Search by Catalog' },
+    { to: '/assistant', label: 'Assistant' },
   ];
 
   const isActive = (path: string) => location.pathname === path;
