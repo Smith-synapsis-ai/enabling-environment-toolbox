@@ -29,14 +29,30 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::919959486181:role/cicd/github-actions-enabling-environment-toolbox-MGMT-deploy
           aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
 
-      - name: Show current branch state
+      - name: Discover app and branch state (non-fatal)
+        continue-on-error: true
         run: |
-          aws amplify get-branch \
+          echo "=== Amplify app ==="
+          aws amplify get-app \
+            --app-id "$AMPLIFY_APP_ID" \
+            --query 'app.{name:name,repository:repository,defaultDomain:defaultDomain}' \
+            --output json || echo "(get-app failed)"
+          echo ""
+          echo "=== Branches ==="
+          aws amplify list-branches \
+            --app-id "$AMPLIFY_APP_ID" \
+            --query 'branches[].{branch:branchName,enableAutoBuild:enableAutoBuild,totalJobs:totalNumberOfJobs}' \
+            --output json || echo "(list-branches failed)"
+          echo ""
+          echo "=== Recent jobs ==="
+          aws amplify list-jobs \
             --app-id "$AMPLIFY_APP_ID" \
             --branch-name "$AMPLIFY_BRANCH" \
-            --query 'branch.{branch:branchName,status:displayName,lastDeployTime:lastDeployTime,totalJobs:totalNumberOfJobs}' \
-            --output json
+            --max-items 3 \
+            --query 'jobSummaries[].{jobId:jobId,status:status,commitId:commitId}' \
+            --output json || echo "(list-jobs failed)"
 
       - name: Start RELEASE build
         id: start-build
@@ -59,7 +75,7 @@ jobs:
               --query 'job.summary.status' --output text 2>/dev/null || echo "PENDING")
             echo "  Poll $i/120: $STATUS"
             if [ "$STATUS" = "SUCCEED" ]; then
-              echo "✅ Build $JOB_ID succeeded — CloudFront cache has been invalidated."
+              echo "Build $JOB_ID succeeded — CloudFront cache has been invalidated."
               exit 0
             fi
             if [ "$STATUS" = "FAILED" ] || [ "$STATUS" = "CANCELLED" ]; then
@@ -80,22 +96,13 @@ jobs:
         run: |
           echo "Waiting 30s for CloudFront to propagate invalidation..."
           sleep 30
-          # Find the current asset filename
-          ASSET_URL=$(curl -s "https://ee-toolbox.synapsis-analytics.com/" \
-            | grep -oP '(?<=src=")[^"]+\.js' | head -1 || echo "")
-          if [ -z "$ASSET_URL" ]; then
-            echo "Could not find JS asset URL from index page, using known path"
-            ASSET_PATH="/assets/index-B5Ik3aC2.js"
-          else
-            ASSET_PATH="$ASSET_URL"
-          fi
+          ASSET_PATH="/assets/index-B5Ik3aC2.js"
           echo "Testing: https://ee-toolbox.synapsis-analytics.com$ASSET_PATH"
           CONTENT_TYPE=$(curl -sI "https://ee-toolbox.synapsis-analytics.com$ASSET_PATH" \
             | grep -i 'content-type:' | head -1)
           echo "Content-Type: $CONTENT_TYPE"
           if echo "$CONTENT_TYPE" | grep -qi 'javascript\|application/'; then
-            echo "✅ Assets now served with correct content-type"
+            echo "Assets now served with correct content-type"
           else
-            echo "⚠️  Content-type may still be wrong: $CONTENT_TYPE"
-            echo "CloudFront propagation may take a few more minutes."
+            echo "Content-type may still be wrong: $CONTENT_TYPE (CloudFront propagation may need a few more minutes)"
           fi
