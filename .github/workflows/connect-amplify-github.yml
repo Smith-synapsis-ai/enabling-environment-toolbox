@@ -1,0 +1,137 @@
+name: "One-off: Connect Amplify App to GitHub"
+
+# One-off workflow to connect the existing manually-deployed Amplify app
+# (ee-toolbox, mgmt account) to this GitHub repository so that pushes to
+# `main` auto-build and deploy.
+#
+# Steps:
+# 1. OIDC-assume the MGMT deploy role (read+write Amplify permissions)
+# 2. Show pre-state of the app (repository should be null)
+# 3. update-app: attach repository + GitHub access token + monorepo build spec
+# 4. update-branch: enable auto-build on `main`
+# 5. Verify post-state (repository set, autoBuild true)
+# 6. Optionally start a RELEASE job to test the build pipeline immediately
+#
+# Required secret: AMPLIFY_GH_PAT — a GitHub token with `repo` scope
+# (used by Amplify to install the webhook and clone the repo).
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_id:
+        description: 'Amplify App ID (mgmt account)'
+        type: string
+        default: 'd15pb16eb2gi8i'
+      start_test_build:
+        description: 'Start a test RELEASE build after connecting'
+        type: boolean
+        default: true
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: eu-central-1
+  MGMT_ACCOUNT_ID: '919959486181'
+  REPO_URL: https://github.com/Smith-synapsis-ai/enabling-environment-toolbox
+
+jobs:
+  connect:
+    name: Connect Amplify to GitHub
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC → MGMT)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::919959486181:role/cicd/github-actions-enabling-environment-toolbox-MGMT-deploy
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+
+      - name: Verify management account
+        run: |
+          ACTUAL=$(aws sts get-caller-identity --query Account --output text)
+          echo "Account: $ACTUAL"
+          if [[ "$ACTUAL" != "${{ env.MGMT_ACCOUNT_ID }}" ]]; then
+            echo "::error::Expected mgmt account ${{ env.MGMT_ACCOUNT_ID }}, got $ACTUAL"
+            exit 1
+          fi
+
+      - name: Show pre-connect app state
+        run: |
+          aws amplify get-app --app-id "${{ inputs.app_id }}" \
+            --query 'app.{name:name,repository:repository,cloneMethod:repositoryCloneMethod,autoBranchBuild:enableBranchAutoBuild}' \
+            --output json
+
+      - name: Connect repository to Amplify app
+        run: |
+          aws amplify update-app \
+            --app-id "${{ inputs.app_id }}" \
+            --repository "${{ env.REPO_URL }}" \
+            --access-token "${{ secrets.AMPLIFY_GH_PAT }}" \
+            --build-spec "$(cat amplify.yml)" \
+            --query 'app.{name:name,repository:repository,cloneMethod:repositoryCloneMethod}' \
+            --output json
+
+      - name: Enable auto-build on main branch
+        run: |
+          aws amplify update-branch \
+            --app-id "${{ inputs.app_id }}" \
+            --branch-name main \
+            --enable-auto-build \
+            --query 'branch.{branch:branchName,autoBuild:enableAutoBuild}' \
+            --output json
+
+      - name: Verify post-connect state
+        run: |
+          REPO=$(aws amplify get-app --app-id "${{ inputs.app_id }}" \
+            --query 'app.repository' --output text)
+          AUTOBUILD=$(aws amplify get-branch --app-id "${{ inputs.app_id }}" \
+            --branch-name main --query 'branch.enableAutoBuild' --output text)
+          echo "repository: $REPO"
+          echo "main autoBuild: $AUTOBUILD"
+          if [[ "$REPO" != "${{ env.REPO_URL }}" ]]; then
+            echo "::error::Repository not set as expected (got: $REPO)"
+            exit 1
+          fi
+          if [[ "$AUTOBUILD" != "True" && "$AUTOBUILD" != "true" ]]; then
+            echo "::error::Auto-build not enabled on main (got: $AUTOBUILD)"
+            exit 1
+          fi
+          echo "Amplify app is now connected to GitHub with auto-build on main."
+
+      - name: Start test RELEASE build
+        if: ${{ inputs.start_test_build }}
+        run: |
+          APP_ID="${{ inputs.app_id }}"
+          JOB_ID=$(aws amplify start-job \
+            --app-id "$APP_ID" \
+            --branch-name main \
+            --job-type RELEASE \
+            --query 'jobSummary.jobId' --output text)
+          echo "Started RELEASE job: $JOB_ID"
+
+          # Poll for completion (max 15 minutes)
+          for i in $(seq 1 90); do
+            STATUS=$(aws amplify get-job \
+              --app-id "$APP_ID" \
+              --branch-name main \
+              --job-id "$JOB_ID" \
+              --query 'job.summary.status' --output text 2>/dev/null || echo "PENDING")
+            echo "  Poll $i/90: $STATUS"
+            if [ "$STATUS" = "SUCCEED" ]; then
+              echo "Build job $JOB_ID succeeded."
+              exit 0
+            fi
+            if [ "$STATUS" = "FAILED" ] || [ "$STATUS" = "CANCELLED" ]; then
+              echo "::error::Build job $JOB_ID ended with status $STATUS"
+              aws amplify get-job --app-id "$APP_ID" --branch-name main --job-id "$JOB_ID" \
+                --query 'job.steps[].{step:stepName,status:status}' --output table || true
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "::error::Timed out waiting for job $JOB_ID"
+          exit 1
