@@ -300,6 +300,11 @@ export default function AssistantPage() {
     setDraftError(null);
   }, []);
 
+  const handleAttach = useCallback((files: FileList) => {
+    const names = Array.from(files).map(f => f.name).join(', ');
+    sendTurn(`[Attached files: ${names}]`);
+  }, [sendTurn]);
+
   // ----- degraded-state banner -----------------------------------------------
   const degraded =
     connectionState === 'reconnecting' || connectionState === 'closed'
@@ -388,6 +393,7 @@ export default function AssistantPage() {
                 busy={busy}
                 onSend={sendTurn}
                 inputRef={inputRef}
+                onAttach={handleAttach}
               />
               <p className="text-[10px] text-white/30 mt-1 px-1">
                 Session {sessionIdRef.current.slice(0, 8)}… · {connectionState}
