@@ -295,30 +295,29 @@ jobs:
       - name: Deploy app stack
         env:
           IMAGE_TAG: ${{ github.sha }}
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
         run: |
           STACK_NAME="ee-toolbox-${ENV}-app"
           ECR_REPO="ee-toolbox-${ENV}-backend"
+          # Build the full image URI that the CloudFormation template expects as ImageUri
+          IMAGE_URI="${ECR_REGISTRY}/${ECR_REPO}:${IMAGE_TAG}"
+          echo "Deploying image: $IMAGE_URI"
           STACK_STATUS=$(aws cloudformation describe-stacks --stack-name $STACK_NAME \
             --query "Stacks[0].StackStatus" --output text 2>/dev/null || echo "DOES_NOT_EXIST")
 
           if [ "$STACK_STATUS" = "DOES_NOT_EXIST" ]; then
             echo "Creating app stack for the first time (using create-stack to bypass changeset hooks)..."
-            # Write parameters to JSON file (avoids shell quoting issues with commas in SubnetIds)
+            # Write parameters to JSON file (avoids shell quoting issues with commas in SubnetIds).
+            # Only pass parameters that the template actually declares; extras cause ValidationError.
             cat > /tmp/app-params.json << PARAMS_EOF
-          [
-            {"ParameterKey":"Environment","ParameterValue":"${ENV}"},
-            {"ParameterKey":"DBEndpoint","ParameterValue":"${{ steps.db-outputs.outputs.db_endpoint }}"},
-            {"ParameterKey":"DBSecretArn","ParameterValue":"${{ steps.db-outputs.outputs.db_secret_arn }}"},
-            {"ParameterKey":"RDSSecurityGroupId","ParameterValue":"${{ steps.db-outputs.outputs.rds_sg_id }}"},
-            {"ParameterKey":"VpcId","ParameterValue":"${{ steps.vpc.outputs.vpc_id }}"},
-            {"ParameterKey":"SubnetIds","ParameterValue":"${{ steps.vpc.outputs.subnets }}"},
-            {"ParameterKey":"CertificateArn","ParameterValue":"${{ steps.vpc.outputs.cert_arn }}"},
-            {"ParameterKey":"ImageTag","ParameterValue":"${IMAGE_TAG}"},
-            {"ParameterKey":"AnthropicApiKey","ParameterValue":"${{ secrets.ANTHROPIC_API_KEY }}"},
-            {"ParameterKey":"OpenAIApiKey","ParameterValue":"${{ secrets.OPENAI_API_KEY }}"},
-            {"ParameterKey":"AdminPassword","ParameterValue":"${{ secrets.ADMIN_PASSWORD }}"}
-          ]
-          PARAMS_EOF
+[
+  {"ParameterKey":"Environment","ParameterValue":"${ENV}"},
+  {"ParameterKey":"VpcId","ParameterValue":"${{ steps.vpc.outputs.vpc_id }}"},
+  {"ParameterKey":"SubnetIds","ParameterValue":"${{ steps.vpc.outputs.subnets }}"},
+  {"ParameterKey":"CertificateArn","ParameterValue":"${{ steps.vpc.outputs.cert_arn }}"},
+  {"ParameterKey":"ImageUri","ParameterValue":"${IMAGE_URI}"}
+]
+PARAMS_EOF
             aws cloudformation create-stack \
               --stack-name $STACK_NAME \
               --template-body file://infra/ee-toolbox-app.yaml \
@@ -333,16 +332,10 @@ jobs:
               --stack-name $STACK_NAME \
               --parameter-overrides \
                 Environment=$ENV \
-                DBEndpoint=${{ steps.db-outputs.outputs.db_endpoint }} \
-                DBSecretArn=${{ steps.db-outputs.outputs.db_secret_arn }} \
-                RDSSecurityGroupId=${{ steps.db-outputs.outputs.rds_sg_id }} \
                 VpcId=${{ steps.vpc.outputs.vpc_id }} \
                 SubnetIds=${{ steps.vpc.outputs.subnets }} \
                 CertificateArn=${{ steps.vpc.outputs.cert_arn }} \
-                ImageTag=$IMAGE_TAG \
-                AnthropicApiKey=${{ secrets.ANTHROPIC_API_KEY }} \
-                OpenAIApiKey=${{ secrets.OPENAI_API_KEY }} \
-                AdminPassword=${{ secrets.ADMIN_PASSWORD }} \
+                ImageUri=$IMAGE_URI \
               --capabilities CAPABILITY_NAMED_IAM \
               --no-fail-on-empty-changeset
           fi
