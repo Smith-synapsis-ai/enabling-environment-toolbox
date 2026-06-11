@@ -45,23 +45,61 @@ async def _revision(store: SqliteReportStore, sid: str) -> int | None:
     return ReportDraft.from_json(raw).revision
 
 
-def test_unknown_key_rejected_no_draft_created() -> None:
-    """A bad call on a fresh session errors out and creates NO draft."""
+def test_alias_sections_accepted_as_upsert_sections() -> None:
+    """``sections`` is a legacy alias for ``upsert_sections`` (Fix 3).
+
+    Prior to Fix 3, ``sections`` was an unknown key and the call was rejected.
+    After Fix 3 the alias is silently normalised before validation, so the call
+    succeeds, the section is created, and the draft is bumped to revision 1.
+    """
 
     async def run() -> None:
         sid, store, tmp = _fresh_session()
         try:
             result = await _report_update({
                 "sections": [{"id": "intro", "heading": "Intro", "body_md": "x"}],
-                "changelog_summary": "tried to add intro via wrong key",
+                "changelog_summary": "alias key should now succeed",
             })
-            print("\n--- rejection payload (fresh session) ---")
+            print("\n--- alias-accepted payload ---")
             print(json.dumps(result, indent=2))
-            assert result.get("is_error") is True
+            assert result.get("is_error") is not True, (
+                f"Expected success but got is_error=True: {result}"
+            )
+            # Draft must have been created at revision 1.
+            rev = await _revision(store, sid)
+            print(f"draft revision after alias call: {rev} (expected 1)")
+            assert rev == 1
+            # Section must be present in the saved draft.
+            draft = ReportDraft.from_json(await store.load_draft(sid))
+            # draft.sections is a list of dicts ({"id": ..., "heading": ..., ...})
+            section_ids = [s["id"] for s in draft.sections]
+            assert "intro" in section_ids, (
+                f"Expected 'intro' section, got ids: {section_ids}"
+            )
+        finally:
+            tmp.cleanup()
+
+    asyncio.run(run())
+
+
+def test_truly_unknown_key_rejected_no_draft_created() -> None:
+    """A call with a genuinely unknown key errors out and creates NO draft."""
+
+    async def run() -> None:
+        sid, store, tmp = _fresh_session()
+        try:
+            result = await _report_update({
+                "completely_bogus_field": "should not work",
+                "changelog_summary": "bad call with totally unknown key",
+            })
+            print("\n--- rejection payload (truly unknown key, fresh session) ---")
+            print(json.dumps(result, indent=2))
+            assert result.get("is_error") is True, (
+                f"Expected is_error=True but call succeeded: {result}"
+            )
             text = result["content"][0]["text"]
-            assert "unknown top-level key(s): sections" in text
-            assert "upsert_sections" in text  # allowed keys listed
-            # No draft must have been created (no save, no revision bump).
+            assert "completely_bogus_field" in text
+            # No draft must have been created.
             rev = await _revision(store, sid)
             print(f"draft revision after rejected call: {rev} (expected None)")
             assert rev is None
@@ -119,6 +157,7 @@ def test_good_call_succeeds_then_bad_call_does_not_bump() -> None:
 
 
 if __name__ == "__main__":
-    test_unknown_key_rejected_no_draft_created()
+    test_alias_sections_accepted_as_upsert_sections()
+    test_truly_unknown_key_rejected_no_draft_created()
     test_good_call_succeeds_then_bad_call_does_not_bump()
     print("\nAll report_update validation tests passed.")

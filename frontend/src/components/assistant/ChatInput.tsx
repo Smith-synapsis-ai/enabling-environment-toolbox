@@ -15,13 +15,21 @@ interface ChatInputProps {
 // ---------------------------------------------------------------------------
 // Browser Speech Recognition shim
 // ---------------------------------------------------------------------------
-// SpeechRecognition is in lib.dom.d.ts (TypeScript ≥ 4.0 with DOM lib).
-// webkitSpeechRecognition is a Chrome-only prefixed alias not yet in the type
-// definitions, so we access it via an explicit any cast.
+// The Web Speech API (SpeechRecognition / webkitSpeechRecognition) is
+// experimental and not in TypeScript's DOM lib for all TS versions.  We
+// access it entirely through (window as any) so the code compiles cleanly
+// regardless of the TS version used in CI.  `any` is intentional here —
+// adding @types/dom-speech-recognition as a dep would be disproportionate
+// for a progressive-enhancement feature that degrades gracefully when absent.
 // ---------------------------------------------------------------------------
-const SpeechRecognitionAPI: typeof SpeechRecognition | null =
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SpeechRecognitionCtor = new () => any;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const SpeechRecognitionAPI: SpeechRecognitionCtor | null =
   typeof window !== 'undefined'
-    ? (window.SpeechRecognition ??
+    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ((window as any).SpeechRecognition ??
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (window as any).webkitSpeechRecognition ??
         null)
@@ -36,7 +44,8 @@ export default function ChatInput({
 }: ChatInputProps) {
   const [text, setText] = useState('');
   const [listening, setListening] = useState(false);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Stop any live recognition session when the component is unmounted.
@@ -72,7 +81,8 @@ export default function ChatInput({
     recognition.maxAlternatives = 1;
     recognition.continuous = false;
 
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript;
       // Append the transcript to whatever is already in the textarea,
       // separated by a space if there is existing text.
