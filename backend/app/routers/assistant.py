@@ -109,15 +109,32 @@ async def challenge_ws(websocket: WebSocket) -> None:
             # -- run one orchestrator turn (serialized globally) --------
             try:
                 async with _CHALLENGE_LOCK:
-                    async for event in run_challenge(
-                        challenge_text,
-                        session_id=str(session_id) if session_id else None,
-                    ):
-                        await websocket.send_text(
-                            json.dumps(event, default=str)
-                        )
+                    # Hard timeout INSIDE the lock so lock-wait time is not
+                    # charged against the user's turn.  220s < 240s budget.
+                    async with asyncio.timeout(220):
+                        async for event in run_challenge(
+                            challenge_text,
+                            session_id=str(session_id) if session_id else None,
+                        ):
+                            await websocket.send_text(
+                                json.dumps(event, default=str)
+                            )
             except WebSocketDisconnect:
                 raise
+            except TimeoutError:
+                # asyncio.TimeoutError (== TimeoutError in 3.11+) — lock is
+                # released automatically when the context manager exits.
+                logger.warning(
+                    "Challenge turn timed out after 220s (session=%s)", session_id
+                )
+                try:
+                    await websocket.send_text(json.dumps({
+                        "type": "error",
+                        "code": "timeout",
+                        "message": "Challenge timed out — please try again.",
+                    }))
+                except Exception:
+                    raise WebSocketDisconnect()
             except Exception as exc:  # noqa: BLE001 — never crash the socket
                 logger.exception("Challenge turn failed")
                 try:

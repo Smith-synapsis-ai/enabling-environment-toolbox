@@ -1,0 +1,31 @@
+# CI test requirements — subset of requirements.txt without the heavy
+# sentence-transformers/torch stack (~500 MB).  The core backend test suite
+# does not require sentence-transformers: it is lazy-imported inside pipeline
+# function bodies and its callers are guarded by @pytest.mark.skipif when
+# evidence_smoke.db is absent.
+#
+# To add a test that exercises embedding or retrieval code, add
+# sentence-transformers back here (and expect a ~90s longer CI install step).
+
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0
+psycopg2-binary==2.9.10
+pgvector==0.3.6
+alembic==1.14.1
+pydantic==2.12.5
+pydantic-settings==2.7.1
+python-dotenv==1.0.1
+httpx==0.28.1
+anthropic==0.99.0
+openai==2.38.0
+claude-agent-sdk==0.1.72
+aiosqlite==0.22.1
+zstandard==0.25.0
+boto3==1.43.3
+rank-bm25==0.2.2
+
+# Test runner (not in requirements.txt — added here for CI)
+pytest>=8.0.0
+pytest-asyncio>=0.23.0

@@ -27,8 +27,16 @@ logger = logging.getLogger(__name__)
 EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_DIMENSION = 1536
 
-# Initialise the OpenAI client once (reads OPENAI_API_KEY from env).
-_client = openai.OpenAI()
+# Lazy-initialised client — defers OPENAI_API_KEY lookup to first call so
+# test code that never calls embedding functions can import this module safely.
+_client: openai.OpenAI | None = None
+
+
+def _get_client() -> openai.OpenAI:
+    global _client
+    if _client is None:
+        _client = openai.OpenAI()
+    return _client
 
 
 # ---------------------------------------------------------------------------
@@ -54,7 +62,7 @@ def generate_embedding(text: str) -> list[float]:
     if not clean:
         raise ValueError("Cannot embed empty text")
 
-    response = _client.embeddings.create(
+    response = _get_client().embeddings.create(
         input=clean,
         model=EMBEDDING_MODEL,
     )

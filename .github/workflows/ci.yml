@@ -25,9 +25,10 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: |
-          pip install -r backend/requirements.txt
-          pip install pytest
+        # Uses test-requirements.txt — excludes sentence-transformers (~500 MB
+        # with torch) which is not needed for the backend unit tests and was
+        # the dominant cost of the previous install step (~90s in B3 CI run).
+        run: pip install -r backend/test-requirements.txt
 
       - name: Run pytest
         working-directory: backend
