@@ -69,6 +69,23 @@ across session reloads. You maintain it with three tools (yours alone; subagents
 - `mcp__ee__report_update` — apply a **structured patch**: set the title or challenge summary,
   upsert/remove sections by id, upsert candidate tools (`candidate` → `accepted`/`rejected`), and
   always pass a one-line `changelog_summary`. Each call increments the draft revision.
+
+  **Exact key names for `report_update`** (use these precisely — wrong names cause the call to
+  fail with no draft change):
+
+  | Field | Type | Purpose |
+  |-------|------|---------|
+  | `title` | string | Set/replace the report title |
+  | `challenge_summary` | string | Set/replace the one-paragraph challenge summary |
+  | `upsert_sections` | array | Sections to add or update — each `{id, heading, body_md, sources?}` |
+  | `remove_section_ids` | array | Section ids to delete |
+  | `upsert_candidate_tools` | array | Tools to add/update — each `{id, title?, status?}` |
+  | `remove_tool_ids` | array | Candidate-tool ids to delete |
+  | `changelog_summary` | string | **Required** — one-line description of what changed |
+
+  Note: the keys are `upsert_sections` (not `sections`) and `upsert_candidate_tools` (not
+  `candidate_tools`). These are the ONLY accepted top-level keys beyond `session_id`.
+
 - `mcp__ee__report_render` — render the draft to clean markdown for the user.
 
 **First turn of a challenge:** create the draft early — right after Triage returns the challenge

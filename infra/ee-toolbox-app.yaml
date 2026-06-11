@@ -390,7 +390,7 @@ Resources:
         - !GetAtt ALBSecurityGroup.GroupId
       LoadBalancerAttributes:
         - Key: idle_timeout.timeout_seconds
-          Value: "600"
+          Value: "3600"
       Tags:
         - Key: Project
           Value: ee-toolbox

@@ -61,7 +61,16 @@ DENY_WRITE_TOOLS: dict[str, str] = {
 # name for subagent dispatch; "Task" the historical one (orchestrator accepts
 # both). TodoWrite is the agent-internal todo scratchpad, not a file write.
 ALLOW_READONLY_TOOLS: frozenset[str] = frozenset(
-    {"Read", "Glob", "Grep", "Task", "Agent", "TodoWrite"}
+    {
+        "Read", "Glob", "Grep", "Task", "Agent", "TodoWrite",
+        # ToolSearch is a harness-internal read-only meta-tool: it loads deferred
+        # tool schemas from the SDK registry. Subagents legitimately call it to
+        # discover available tools; it performs no writes and hits no external hosts.
+        "ToolSearch",
+        # ListMCPServers is another harness-internal read-only meta-tool: it
+        # enumerates connected MCP servers so subagents can discover tool namespaces.
+        "ListMCPServers",
+    }
 )
 
 # Approved MCP server prefixes. mcp__memory__* is forward-compatible for

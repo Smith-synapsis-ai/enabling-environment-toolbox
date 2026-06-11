@@ -43,6 +43,7 @@ from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 # monkeypatch ``app.routers.assistant.run_challenge``.
 from agents.orchestrator import run_challenge  # noqa: F401
 from agents.report_state import ReportDraft, get_report_store
+from persistence.store import SqliteReportStore
 
 logger = logging.getLogger("ee.assistant")
 
@@ -109,9 +110,13 @@ async def challenge_ws(websocket: WebSocket) -> None:
             # -- run one orchestrator turn (serialized globally) --------
             try:
                 async with _CHALLENGE_LOCK:
-                    # Hard timeout INSIDE the lock so lock-wait time is not
-                    # charged against the user's turn.  220s < 240s budget.
-                    async with asyncio.timeout(220):
+                    # 3600s hard timeout INSIDE the lock so lock-wait time is
+                    # not charged against the user's turn.  This matches the
+                    # ALB idle_timeout (also 3600s) so ALB never drops the
+                    # connection before the agent can finish a long turn.
+                    # The earlier 220s figure was aspirational only; the real
+                    # constraint is total pipeline time for complex challenges.
+                    async with asyncio.timeout(3600):
                         async for event in run_challenge(
                             challenge_text,
                             session_id=str(session_id) if session_id else None,
@@ -169,3 +174,53 @@ async def get_session_draft(session_id: str) -> dict:
     data = json.loads(draft.to_json())
     data["rendered_markdown"] = draft.render_markdown()
     return data
+
+
+# ---------------------------------------------------------------------------
+# Admin endpoints (session management)
+# ---------------------------------------------------------------------------
+
+@router.delete("/api/assistant/sessions/{session_id}")
+async def delete_session(session_id: str) -> dict:
+    """Delete the report draft for a session (admin / test cleanup).
+
+    Returns 200 with ``{"deleted": true}`` if the session existed, or 404 if
+    it did not.  The WebSocket connection (if any) is NOT forcibly closed; the
+    client will receive a missing-draft error on its next draft fetch.
+    """
+    store = get_report_store()
+    # delete_session / reap_stale_sessions are SqliteReportStore extensions
+    # not declared on the base ReportStore Protocol (Protocol is frozen per
+    # wave3-interfaces.md §1 contract).  The production store is always
+    # SqliteReportStore (set at orchestrator import), so this guard is a
+    # safety net and type-narrowing hint, not a real code path.
+    if not isinstance(store, SqliteReportStore):
+        raise HTTPException(
+            status_code=501,
+            detail="Session admin endpoints require the SQLite report store.",
+        )
+    deleted = await store.delete_session(session_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="No draft for this session")
+    logger.info("Session %s deleted via admin endpoint", session_id)
+    return {"deleted": True, "session_id": session_id}
+
+
+@router.post("/api/admin/sessions/reap")
+async def reap_sessions(max_age_hours: int = 24) -> dict:
+    """Delete report drafts not updated in the last *max_age_hours* hours.
+
+    Query parameter: ``max_age_hours`` (default: 24).  Returns a count of
+    deleted sessions.  Intended for manual maintenance or a scheduled cron.
+    Minimum value is 1 hour (values < 1 are clamped to 1).
+    """
+    max_age_hours = max(1, max_age_hours)
+    store = get_report_store()
+    if not isinstance(store, SqliteReportStore):
+        raise HTTPException(
+            status_code=501,
+            detail="Session admin endpoints require the SQLite report store.",
+        )
+    deleted = await store.reap_stale_sessions(max_age_hours=max_age_hours)
+    logger.info("Session reap: deleted %d drafts older than %dh", deleted, max_age_hours)
+    return {"deleted_count": deleted, "max_age_hours": max_age_hours}

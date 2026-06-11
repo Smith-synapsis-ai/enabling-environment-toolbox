@@ -292,6 +292,34 @@ def _coerce_array_params(args: dict[str, Any]) -> tuple[dict[str, Any], str | No
     _REPORT_UPDATE_SCHEMA,
 )
 async def report_update(args: dict[str, Any]) -> dict[str, Any]:
+    # --- Key aliasing: accept common wrong keys and silently remap them ---
+    # The orchestrator prompt uses "upsert_sections" / "upsert_candidate_tools"
+    # but the model sometimes guesses shorter names ("sections",
+    # "candidate_tools"). We remap those here BEFORE the unknown-key check so
+    # callers receive a graceful correction rather than an error.
+    _KEY_ALIASES: dict[str, str] = {
+        "sections": "upsert_sections",
+        "candidate_tools": "upsert_candidate_tools",
+    }
+    remapped: list[str] = []
+    args = dict(args)  # avoid mutating the caller's dict
+    for wrong_key, correct_key in _KEY_ALIASES.items():
+        if wrong_key in args:
+            if correct_key not in args:
+                args[correct_key] = args.pop(wrong_key)
+                remapped.append(f"{wrong_key} → {correct_key}")
+                logger.info(
+                    "report_update: aliased key '%s' → '%s'", wrong_key, correct_key
+                )
+            else:
+                # Both supplied: drop the alias so the correct key wins.
+                del args[wrong_key]
+                logger.warning(
+                    "report_update: both '%s' and '%s' supplied; using '%s'",
+                    wrong_key, correct_key, correct_key,
+                )
+    # --- end key aliasing -------------------------------------------------
+
     # --- A6: reject unknown top-level keys explicitly ---------------------
     # Previously unknown keys (e.g. "sections" instead of "upsert_sections")
     # were SILENTLY ignored while the revision still bumped; now the tool

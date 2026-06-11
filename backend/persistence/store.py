@@ -163,3 +163,39 @@ class SqliteReportStore:
             )
             rows = await cursor.fetchall()
         return [r["session_id"] for r in rows]
+
+    async def list_sessions_with_metadata(self) -> list[dict[str, Any]]:
+        """List all report-draft sessions with id, revision, and updated_at."""
+        await ensure_db(self._db_path)
+        async with get_db(self._db_path) as db:
+            cursor = await db.execute(
+                "SELECT session_id, updated_at FROM report_drafts ORDER BY updated_at DESC"
+            )
+            rows = await cursor.fetchall()
+        return [dict(r) for r in rows]
+
+    async def delete_session(self, session_id: str) -> bool:
+        """Delete the report draft for *session_id*. Returns True if a row was deleted."""
+        await ensure_db(self._db_path)
+        async with get_db(self._db_path) as db:
+            cursor = await db.execute(
+                "DELETE FROM report_drafts WHERE session_id = ?", (session_id,)
+            )
+            await db.commit()
+        return (cursor.rowcount or 0) > 0
+
+    async def reap_stale_sessions(self, max_age_hours: int = 24) -> int:
+        """Delete report drafts not updated in *max_age_hours* hours.
+
+        Returns the number of rows deleted. Intended for periodic maintenance
+        (call from an admin endpoint or a startup background task).
+        """
+        await ensure_db(self._db_path)
+        # SQLite datetime arithmetic: subtract the threshold using strftime.
+        threshold_expr = f"datetime('now', '-{max(1, max_age_hours)} hours')"
+        async with get_db(self._db_path) as db:
+            cursor = await db.execute(
+                f"DELETE FROM report_drafts WHERE updated_at < {threshold_expr}"
+            )
+            await db.commit()
+        return cursor.rowcount or 0

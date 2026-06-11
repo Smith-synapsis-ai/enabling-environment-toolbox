@@ -16,16 +16,20 @@ function apiBase(): string {
   return import.meta.env.VITE_API_BASE_URL || '';
 }
 
+// NOTE: sessionStorage (not localStorage) is intentional — per-tab isolation.
+// localStorage is shared across all tabs in the same origin, which caused all
+// tabs to reuse the same session ID and show identical conversations. Using
+// sessionStorage gives each tab its own independent session from first load.
 export function getAssistantSessionId(): string | null {
-  return localStorage.getItem(SESSION_STORAGE_KEY);
+  return sessionStorage.getItem(SESSION_STORAGE_KEY);
 }
 
 export function setAssistantSessionId(sessionId: string): void {
-  localStorage.setItem(SESSION_STORAGE_KEY, sessionId);
+  sessionStorage.setItem(SESSION_STORAGE_KEY, sessionId);
 }
 
 export function clearAssistantSessionId(): void {
-  localStorage.removeItem(SESSION_STORAGE_KEY);
+  sessionStorage.removeItem(SESSION_STORAGE_KEY);
 }
 
 export function newAssistantSessionId(): string {
