@@ -452,6 +452,33 @@ jobs:
           echo "Bucket ready: $BUCKET"
 
       # ----------------------------------------------------------------
+      # 11c. Ensure API keys secret exists (idempotent)
+      #      The secret (ee-toolbox-api-keys) is NOT managed inside the
+      #      CloudFormation app stack — same reason as the Litestream bucket:
+      #      DeletionPolicy: Retain keeps it alive through stack deletions, but
+      #      CloudFormation always issues CREATE on a fresh stack, which fails
+      #      with AlreadyExists and rolls back the entire stack.
+      #      The actual key VALUES are populated by the deploy-infra.yml workflow
+      #      (manual dispatch).  Here we only ensure the secret exists so that
+      #      the EC2 UserData entrypoint.sh can fetch it at boot time.
+      # ----------------------------------------------------------------
+      - name: Ensure API keys secret exists
+        run: |
+          SECRET_NAME="ee-toolbox-api-keys"
+          echo "Ensuring Secrets Manager secret: $SECRET_NAME"
+          if aws secretsmanager describe-secret --secret-id "$SECRET_NAME" 2>/dev/null; then
+            echo "Secret already exists: $SECRET_NAME"
+          else
+            echo "Creating placeholder secret (values populated by deploy-infra workflow): $SECRET_NAME"
+            aws secretsmanager create-secret \
+              --name "$SECRET_NAME" \
+              --description "EE Toolbox API keys (Anthropic, OpenAI) - value managed by deploy-infra workflow" \
+              --secret-string '{"ANTHROPIC_API_KEY":"","OPENAI_API_KEY":""}' \
+              --region eu-central-1
+            echo "Placeholder secret created."
+          fi
+
+      # ----------------------------------------------------------------
       # 12. Deploy app stack (env-prefixed, pass Environment param)
       # ----------------------------------------------------------------
       - name: Deploy app stack

@@ -59,19 +59,20 @@ Resources:
 
   # ---------------------------------------------------------------------------
   # Secrets Manager - API Keys
-  # NOTE: This secret (friendly name "ee-toolbox-api-keys") pre-exists and its
-  # VALUE is managed out-of-band by the deploy-infra.yml workflow via
-  # secretsmanager:put-secret-value. SecretString is deliberately OMITTED here:
-  # on stack update CloudFormation leaves the stored value untouched.
-  # Retain policies prevent accidental deletion of the live secret.
+  # NOTE: ApiKeysSecret intentionally omitted from this template.
+  # The secret (friendly name "ee-toolbox-api-keys") is created idempotently
+  # by the deploy workflow (ensure-api-keys-secret step) before this stack is
+  # deployed.  Its VALUE is managed out-of-band by the deploy-infra.yml workflow
+  # via secretsmanager:put-secret-value.
+  #
+  # Managing it inside CloudFormation caused repeated CREATE_FAILED /
+  # ROLLBACK_COMPLETE cycles: DeletionPolicy: Retain keeps the secret alive
+  # through stack deletions, but CloudFormation always issues a CREATE on a
+  # fresh stack — which fails when the secret already exists.
+  # EC2InstanceRole and UserData already reference it by its well-known name
+  # "ee-toolbox-api-keys" (via !Sub ARN and hardcoded env var), so nothing
+  # here depends on the CF resource.
   # ---------------------------------------------------------------------------
-  ApiKeysSecret:
-    Type: AWS::SecretsManager::Secret
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
-    Properties:
-      Name: ee-toolbox-api-keys
-      Description: EE Toolbox API keys (Anthropic, OpenAI) - value managed by deploy workflow
 
   # ---------------------------------------------------------------------------
   # CloudWatch Log Group (kept from previous stack; container logs are also
