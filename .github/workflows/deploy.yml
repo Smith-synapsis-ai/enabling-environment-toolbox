@@ -310,14 +310,14 @@ jobs:
             # Write parameters to JSON file (avoids shell quoting issues with commas in SubnetIds).
             # Only pass parameters that the template actually declares; extras cause ValidationError.
             cat > /tmp/app-params.json << PARAMS_EOF
-[
-  {"ParameterKey":"Environment","ParameterValue":"${ENV}"},
-  {"ParameterKey":"VpcId","ParameterValue":"${{ steps.vpc.outputs.vpc_id }}"},
-  {"ParameterKey":"SubnetIds","ParameterValue":"${{ steps.vpc.outputs.subnets }}"},
-  {"ParameterKey":"CertificateArn","ParameterValue":"${{ steps.vpc.outputs.cert_arn }}"},
-  {"ParameterKey":"ImageUri","ParameterValue":"${IMAGE_URI}"}
-]
-PARAMS_EOF
+          [
+            {"ParameterKey":"Environment","ParameterValue":"${ENV}"},
+            {"ParameterKey":"VpcId","ParameterValue":"${{ steps.vpc.outputs.vpc_id }}"},
+            {"ParameterKey":"SubnetIds","ParameterValue":"${{ steps.vpc.outputs.subnets }}"},
+            {"ParameterKey":"CertificateArn","ParameterValue":"${{ steps.vpc.outputs.cert_arn }}"},
+            {"ParameterKey":"ImageUri","ParameterValue":"${IMAGE_URI}"}
+          ]
+          PARAMS_EOF
             aws cloudformation create-stack \
               --stack-name $STACK_NAME \
               --template-body file://infra/ee-toolbox-app.yaml \
