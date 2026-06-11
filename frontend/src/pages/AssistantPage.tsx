@@ -14,6 +14,7 @@ import type {
   ThreadItem,
   ToolActivity,
 } from '../types/assistant';
+import { trackEvent } from '../services/trackEvent';
 import ChatThread from '../components/assistant/ChatThread';
 import ChatInput from '../components/assistant/ChatInput';
 import ReportPanel from '../components/assistant/ReportPanel';
@@ -97,6 +98,7 @@ export default function AssistantPage() {
 
   // ----- session resume on mount --------------------------------------------
   useEffect(() => {
+    trackEvent('assistant_session_started');
     let cancelled = false;
     (async () => {
       try {
@@ -247,6 +249,7 @@ export default function AssistantPage() {
         break;
 
       case 'turn_complete':
+        trackEvent('challenge_completed');
         setBusy(false);
         // Mark any still-running subagents as finished (turn is over).
         setItems(prev =>
@@ -301,6 +304,7 @@ export default function AssistantPage() {
   }, []);
 
   const handleAttach = useCallback((files: FileList) => {
+    trackEvent('feature_file_upload');
     const names = Array.from(files).map(f => f.name).join(', ');
     sendTurn(`[Attached files: ${names}]`);
   }, [sendTurn]);

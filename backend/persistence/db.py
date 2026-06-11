@@ -190,6 +190,21 @@ async def init_db(db_path: str | Path | None = None) -> None:
             END
         """)
 
+        # -- Analytics events (C3/C4 anonymous KPI tracking) ----------------
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS analytics_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_name TEXT NOT NULL,
+                session_id TEXT,
+                created_at TEXT,
+                payload TEXT
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_analytics_events_name
+            ON analytics_events (event_name, created_at)
+        """)
+
         await db.commit()
 
 

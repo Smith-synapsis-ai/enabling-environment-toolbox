@@ -9,6 +9,8 @@ import TutorialPage from './pages/TutorialPage';
 import CatalogPage from './pages/CatalogPage';
 import AdminPage from './pages/AdminPage';
 import AssistantPage from './pages/AssistantPage';
+import TransparencyPage from './pages/TransparencyPage';
+import { trackEvent } from './services/trackEvent';
 
 /** Capture UTM parameters from the URL on first load and persist in sessionStorage. */
 function captureUtmParams() {
@@ -30,6 +32,10 @@ function AppContent() {
   // Capture UTM parameters once on mount
   useEffect(() => {
     captureUtmParams();
+    if (!sessionStorage.getItem('ee-access-tracked')) {
+      trackEvent('access_event');
+      sessionStorage.setItem('ee-access-tracked', '1');
+    }
   }, []);
 
   const handleToolViewed = useCallback(() => {
@@ -65,6 +71,7 @@ function AppContent() {
           <Route path="/tutorial" element={<TutorialPage />} />
           <Route path="/catalog" element={<CatalogPage onToolViewed={handleToolViewed} />} />
           <Route path="/assistant" element={<AssistantPage />} />
+          <Route path="/transparency" element={<TransparencyPage />} />
           <Route path="/admin" element={<AdminPage />} />
         </Routes>
       </main>
