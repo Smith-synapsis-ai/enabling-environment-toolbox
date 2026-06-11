@@ -76,7 +76,7 @@ function AppContent() {
       />
 
       {/* Email capture modal */}
-      <EmailCaptureModal toolViewCount={toolViewCount} />
+      <EmailCaptureModal toolViewCount={toolViewCount} currentPath={location.pathname} />
     </div>
   );
 }

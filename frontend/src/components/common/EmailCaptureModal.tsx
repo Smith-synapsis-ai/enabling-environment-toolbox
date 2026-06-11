@@ -4,9 +4,11 @@ import { captureEmail, getSessionId } from '../../services/api';
 
 interface EmailCaptureModalProps {
   toolViewCount: number;
+  /** Current router path — modal is suppressed on /assistant to avoid blocking challenge submission. */
+  currentPath: string;
 }
 
-export default function EmailCaptureModal({ toolViewCount }: EmailCaptureModalProps) {
+export default function EmailCaptureModal({ toolViewCount, currentPath }: EmailCaptureModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -22,6 +24,9 @@ export default function EmailCaptureModal({ toolViewCount }: EmailCaptureModalPr
 
   useEffect(() => {
     if (sessionStorage.getItem('email_captured')) return;
+    // Suppress the 30-second auto-pop on /assistant — the modal's focus trap
+    // can intercept the Send button click if the user takes >30s to compose.
+    if (currentPath === '/assistant') return;
 
     const timer = setTimeout(() => {
       if (!sessionStorage.getItem('email_captured')) {
@@ -30,14 +35,17 @@ export default function EmailCaptureModal({ toolViewCount }: EmailCaptureModalPr
     }, 30000);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [currentPath]);
 
   useEffect(() => {
     if (sessionStorage.getItem('email_captured')) return;
+    // Also suppress tool-view trigger on /assistant — keep users uninterrupted
+    // during the challenge pipeline flow.
+    if (currentPath === '/assistant') return;
     if (toolViewCount >= 2) {
       setIsOpen(true);
     }
-  }, [toolViewCount]);
+  }, [toolViewCount, currentPath]);
 
   // Focus trap + Escape key
   useEffect(() => {
