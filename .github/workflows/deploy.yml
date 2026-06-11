@@ -548,7 +548,55 @@ jobs:
           fi
 
       # ----------------------------------------------------------------
-      # 12b. Get ALB outputs for DNS (before switching credentials later)
+      # 12b. Trigger ASG instance refresh so EC2 instances pull new image
+      #      The CloudFormation app stack updates the launch template with the
+      #      new ImageUri, but existing instances keep running the old image
+      #      until refreshed. This step forces a rolling replacement.
+      # ----------------------------------------------------------------
+      - name: Trigger ASG instance refresh
+        run: |
+          ASG_NAME=$(aws cloudformation describe-stacks \
+            --stack-name ee-toolbox-${ENV}-app \
+            --query "Stacks[0].Outputs[?OutputKey=='AutoScalingGroupName'].OutputValue" \
+            --output text 2>/dev/null || echo "")
+
+          if [ -z "$ASG_NAME" ] || [ "$ASG_NAME" = "None" ]; then
+            echo "No ASG found in stack outputs — skipping instance refresh."
+            exit 0
+          fi
+
+          echo "Starting instance refresh on ASG: $ASG_NAME"
+          REFRESH_ID=$(aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name "$ASG_NAME" \
+            --preferences '{"MinHealthyPercentage":0,"InstanceWarmup":300}' \
+            --region "$AWS_REGION" \
+            --query 'InstanceRefreshId' --output text)
+          echo "Instance refresh started: $REFRESH_ID"
+
+          # Wait up to 15 minutes for the refresh to complete
+          for i in $(seq 1 30); do
+            STATUS=$(aws autoscaling describe-instance-refreshes \
+              --auto-scaling-group-name "$ASG_NAME" \
+              --instance-refresh-ids "$REFRESH_ID" \
+              --region "$AWS_REGION" \
+              --query 'InstanceRefreshes[0].Status' --output text)
+            echo "[$i/30] Instance refresh status: $STATUS"
+            case "$STATUS" in
+              Successful)
+                echo "Instance refresh completed successfully."
+                exit 0
+                ;;
+              Failed|Cancelled)
+                echo "Instance refresh ended with status: $STATUS — non-fatal, continuing."
+                exit 0
+                ;;
+            esac
+            sleep 30
+          done
+          echo "Instance refresh still in progress after 15 minutes — continuing anyway."
+
+      # ----------------------------------------------------------------
+      # 12c. Get ALB outputs for DNS (before switching credentials later)
       # ----------------------------------------------------------------
       - name: Get ALB outputs for DNS
         id: alb-outputs
