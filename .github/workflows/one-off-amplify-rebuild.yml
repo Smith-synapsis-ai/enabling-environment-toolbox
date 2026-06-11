@@ -1,12 +1,13 @@
 name: "One-off: Trigger Amplify rebuild + cache invalidation"
 
-# Triggers a BUILD job on the Amplify app to pull the latest code from GitHub
-# and rebuild the frontend, then forces a CloudFront /* invalidation.
-# Use this when a code change needs to be deployed to the Amplify-hosted frontend
-# (since enableAutoBuild is false on the branch).
+# Triggers a RELEASE job on the Amplify app (re-deploys the most recent
+# built artifacts) and forces a CloudFront /* invalidation.
+# Use this when you need to re-deploy the latest built assets and invalidate
+# the CDN cache at ee-toolbox.synapsis-analytics.com.
 #
-# After this job succeeds, the custom domain ee-toolbox.synapsis-analytics.com
-# will serve the freshly-built JS/CSS assets.
+# Note: RELEASE re-deploys the most recently built artifact set (not MANUAL —
+# MANUAL/BUILD are not supported job types for this app configuration).
+# To build from a new commit, simply push to main; Amplify auto-builds on push.
 
 on:
   workflow_dispatch:
@@ -55,15 +56,15 @@ jobs:
             --query 'jobSummaries[].{jobId:jobId,status:status,commitId:commitId}' \
             --output json || echo "(list-jobs failed)"
 
-      - name: Start MANUAL build (pull latest code from GitHub + rebuild)
+      - name: Start RELEASE build (re-deploy last built artifacts + CloudFront invalidation)
         id: start-build
         run: |
           JOB_ID=$(aws amplify start-job \
             --app-id "$AMPLIFY_APP_ID" \
             --branch-name "$AMPLIFY_BRANCH" \
-            --job-type MANUAL \
+            --job-type RELEASE \
             --query 'jobSummary.jobId' --output text)
-          echo "Started MANUAL build job: $JOB_ID"
+          echo "Started RELEASE build job: $JOB_ID"
           echo "JOB_ID=$JOB_ID" >> "$GITHUB_ENV"
 
       - name: Poll until build completes (max 30 minutes)
