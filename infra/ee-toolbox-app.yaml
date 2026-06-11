@@ -84,26 +84,16 @@ Resources:
       RetentionInDays: 14
 
   # ---------------------------------------------------------------------------
-  # S3 - Litestream session replication bucket
+  # NOTE: LitestreamS3Bucket intentionally omitted from this template.
+  # The bucket (ee-toolbox-sessions-<AccountId>) is created idempotently by
+  # the deploy workflow (ensure-litestream-bucket step) before this stack is
+  # deployed.  Managing it inside CloudFormation caused repeated
+  # CREATE_FAILED / ROLLBACK_COMPLETE cycles: DeletionPolicy: Retain keeps the
+  # bucket alive through stack deletions, but CloudFormation always issues a
+  # CREATE on a fresh stack — which fails when the bucket already exists.
+  # All EC2InstanceRole and UserData references use !Sub to build the bucket
+  # name directly, so nothing here depends on the CF resource.
   # ---------------------------------------------------------------------------
-  LitestreamS3Bucket:
-    Type: AWS::S3::Bucket
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
-    Properties:
-      BucketName: !Sub "ee-toolbox-sessions-${AWS::AccountId}"
-      VersioningConfiguration:
-        Status: Enabled
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        IgnorePublicAcls: true
-        BlockPublicPolicy: true
-        RestrictPublicBuckets: true
-      Tags:
-        - Key: Project
-          Value: ee-toolbox
-        - Key: Environment
-          Value: !Ref Environment
 
   # ---------------------------------------------------------------------------
   # Security Group - ALB
@@ -513,6 +503,6 @@ Outputs:
 
   LitestreamBucketName:
     Description: S3 bucket for Litestream session replication
-    Value: !Ref LitestreamS3Bucket
+    Value: !Sub "ee-toolbox-sessions-${AWS::AccountId}"
     Export:
       Name: ee-toolbox-LitestreamBucketName

@@ -420,6 +420,38 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPO:latest
 
       # ----------------------------------------------------------------
+      # 11b. Ensure Litestream S3 bucket exists (idempotent)
+      #      The bucket is NOT managed inside the CloudFormation app stack
+      #      (see note in infra/ee-toolbox-app.yaml).  CloudFormation always
+      #      issues a CREATE for resources on a fresh stack deploy; because
+      #      DeletionPolicy: Retain kept the bucket alive through prior stack
+      #      deletions, every fresh CREATE attempt fails with AlreadyExists and
+      #      rolls back the entire stack.  We create it here instead, which is
+      #      safe to run on every deploy (head-bucket short-circuits if it exists).
+      # ----------------------------------------------------------------
+      - name: Ensure Litestream S3 bucket exists
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          BUCKET="ee-toolbox-sessions-${ACCOUNT_ID}"
+          REGION="eu-central-1"
+          echo "Ensuring Litestream S3 bucket: $BUCKET"
+          if aws s3api head-bucket --bucket "$BUCKET" 2>/dev/null; then
+            echo "Bucket already exists: $BUCKET"
+          else
+            echo "Creating bucket: $BUCKET"
+            aws s3api create-bucket --bucket "$BUCKET" --region "$REGION" \
+              --create-bucket-configuration LocationConstraint="$REGION"
+            echo "Bucket created."
+          fi
+          # Idempotently enforce versioning and public-access-block.
+          aws s3api put-bucket-versioning --bucket "$BUCKET" \
+            --versioning-configuration Status=Enabled
+          aws s3api put-public-access-block --bucket "$BUCKET" \
+            --public-access-block-configuration \
+              BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+          echo "Bucket ready: $BUCKET"
+
+      # ----------------------------------------------------------------
       # 12. Deploy app stack (env-prefixed, pass Environment param)
       # ----------------------------------------------------------------
       - name: Deploy app stack
