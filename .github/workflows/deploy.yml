@@ -458,9 +458,6 @@ jobs:
       #      DeletionPolicy: Retain keeps it alive through stack deletions, but
       #      CloudFormation always issues CREATE on a fresh stack, which fails
       #      with AlreadyExists and rolls back the entire stack.
-      #      The actual key VALUES are populated by the deploy-infra.yml workflow
-      #      (manual dispatch).  Here we only ensure the secret exists so that
-      #      the EC2 UserData entrypoint.sh can fetch it at boot time.
       # ----------------------------------------------------------------
       - name: Ensure API keys secret exists
         run: |
@@ -469,14 +466,35 @@ jobs:
           if aws secretsmanager describe-secret --secret-id "$SECRET_NAME" 2>/dev/null; then
             echo "Secret already exists: $SECRET_NAME"
           else
-            echo "Creating placeholder secret (values populated by deploy-infra workflow): $SECRET_NAME"
+            echo "Creating secret (values populated by step 11d): $SECRET_NAME"
             aws secretsmanager create-secret \
               --name "$SECRET_NAME" \
-              --description "EE Toolbox API keys (Anthropic, OpenAI) - value managed by deploy-infra workflow" \
+              --description "EE Toolbox API keys (Anthropic, OpenAI) - value managed by deploy workflow" \
               --secret-string '{"ANTHROPIC_API_KEY":"","OPENAI_API_KEY":""}' \
               --region eu-central-1
-            echo "Placeholder secret created."
+            echo "Secret created."
           fi
+
+      # ----------------------------------------------------------------
+      # 11d. Populate API keys into the secret (always — ensures non-empty values)
+      #      The secret was historically created with an empty SecretString by
+      #      CloudFormation or step 11c, causing boto3.get_secret_value() to
+      #      raise ResourceNotFoundException and crash the backend container.
+      #      This step always writes the current GitHub environment secret values
+      #      so every deploy guarantees a non-empty, valid secret.
+      # ----------------------------------------------------------------
+      - name: Populate API keys secret values
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          SECRET_NAME="ee-toolbox-api-keys"
+          echo "Writing API key values to Secrets Manager: $SECRET_NAME"
+          aws secretsmanager put-secret-value \
+            --secret-id "$SECRET_NAME" \
+            --secret-string "{\"ANTHROPIC_API_KEY\":\"${ANTHROPIC_API_KEY}\",\"OPENAI_API_KEY\":\"${OPENAI_API_KEY}\"}" \
+            --region eu-central-1
+          echo "API keys populated in $SECRET_NAME."
 
       # ----------------------------------------------------------------
       # 12. Deploy app stack (env-prefixed, pass Environment param)
