@@ -55,15 +55,15 @@ jobs:
             --query 'jobSummaries[].{jobId:jobId,status:status,commitId:commitId}' \
             --output json || echo "(list-jobs failed)"
 
-      - name: Start BUILD job (pull latest code from GitHub + rebuild)
+      - name: Start MANUAL build (pull latest code from GitHub + rebuild)
         id: start-build
         run: |
           JOB_ID=$(aws amplify start-job \
             --app-id "$AMPLIFY_APP_ID" \
             --branch-name "$AMPLIFY_BRANCH" \
-            --job-type BUILD \
+            --job-type MANUAL \
             --query 'jobSummary.jobId' --output text)
-          echo "Started BUILD job: $JOB_ID"
+          echo "Started MANUAL build job: $JOB_ID"
           echo "JOB_ID=$JOB_ID" >> "$GITHUB_ENV"
 
       - name: Poll until build completes (max 30 minutes)
