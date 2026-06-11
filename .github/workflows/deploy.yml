@@ -157,42 +157,119 @@ jobs:
       # ----------------------------------------------------------------
       # 4b. Ensure ACM certificate exists in this account.
       #     The ALB HTTPS listener requires a cert in the SAME account.
-      #     The DNS validation CNAME for *.synapsis-analytics.com is
-      #     already in the Route53 hosted zone (managed by the MGMT
-      #     account), so ACM auto-validates any new cert request without
-      #     needing us to add extra DNS records.
+      #     ACM DNS validation requires a CNAME in the Route53 zone, which
+      #     lives in the management account.  We add it dynamically via
+      #     the management account credentials (same pattern as the DNS
+      #     step at the end of the job).
       # ----------------------------------------------------------------
-      - name: Ensure ACM certificate
-        id: ensure-cert
+      - name: Request ACM certificate (if needed)
+        id: request-cert
         run: |
-          # 1. Check for an existing *.synapsis-analytics.com cert in this account
+          # 1. Check for an existing cert (ISSUED or PENDING) in this account.
+          #    --certificate-statuses is explicit to ensure PENDING_VALIDATION
+          #    certs from a previous run are found and reused, not duplicated.
           CERT_ARN=$(aws acm list-certificates \
+            --certificate-statuses ISSUED PENDING_VALIDATION \
             --query "CertificateSummaryList[?DomainName=='*.synapsis-analytics.com'].CertificateArn | [0]" \
             --output text)
 
-          if [ -n "$CERT_ARN" ] && [ "$CERT_ARN" != "None" ]; then
-            echo "Found existing wildcard cert: $CERT_ARN"
-            echo "cert_arn=$CERT_ARN" >> $GITHUB_OUTPUT
+          if [ -z "$CERT_ARN" ] || [ "$CERT_ARN" = "None" ]; then
+            # 2. No cert — request one.
+            echo "No *.synapsis-analytics.com cert in this account. Requesting one..."
+            CERT_ARN=$(aws acm request-certificate \
+              --domain-name "*.synapsis-analytics.com" \
+              --subject-alternative-names "synapsis-analytics.com" \
+              --validation-method DNS \
+              --idempotency-token "eetoolbox${ENV}wc" \
+              --query CertificateArn --output text)
+            echo "Requested cert: $CERT_ARN"
+          else
+            echo "Found existing cert: $CERT_ARN"
+          fi
+          echo "cert_arn=$CERT_ARN" >> $GITHUB_OUTPUT
+
+          # 3. Check if cert is already ISSUED (no DNS action needed).
+          CERT_STATUS=$(aws acm describe-certificate \
+            --certificate-arn "$CERT_ARN" \
+            --query 'Certificate.Status' --output text)
+          echo "Cert status: $CERT_STATUS"
+
+          if [ "$CERT_STATUS" = "ISSUED" ]; then
+            echo "is_pending=false" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          # 2. No cert found — request one.
-          #    The validation CNAME (_4c7a214a48006081d41bcb820b99f1f4.synapsis-analytics.com.)
-          #    already exists in Route53 so ACM will auto-validate.
-          echo "No *.synapsis-analytics.com cert in this account. Requesting one..."
-          CERT_ARN=$(aws acm request-certificate \
-            --domain-name "*.synapsis-analytics.com" \
-            --subject-alternative-names "synapsis-analytics.com" \
-            --validation-method DNS \
-            --idempotency-token "eetoolbox${ENV}wc" \
-            --query CertificateArn --output text)
-          echo "Requested cert: $CERT_ARN"
+          # 4. Cert is PENDING_VALIDATION — retrieve the validation CNAME.
+          #    Brief sleep so ACM populates DomainValidationOptions.
+          sleep 10
+          CNAME_NAME=$(aws acm describe-certificate \
+            --certificate-arn "$CERT_ARN" \
+            --query 'Certificate.DomainValidationOptions[0].ResourceRecord.Name' \
+            --output text)
+          CNAME_VALUE=$(aws acm describe-certificate \
+            --certificate-arn "$CERT_ARN" \
+            --query 'Certificate.DomainValidationOptions[0].ResourceRecord.Value' \
+            --output text)
+          echo "Validation CNAME: $CNAME_NAME -> $CNAME_VALUE"
 
-          # 3. Wait for ACM to pick up the pre-existing validation CNAME and issue the cert.
-          #    aws acm wait polls every 60s for up to 40 minutes.
-          echo "Waiting for certificate validation (DNS CNAME already in Route53)..."
-          aws acm wait certificate-validated --certificate-arn "$CERT_ARN"
-          echo "Certificate issued: $CERT_ARN"
+          if [ -z "$CNAME_NAME" ] || [ "$CNAME_NAME" = "None" ]; then
+            echo "ERROR: ACM did not return validation CNAME details."
+            exit 1
+          fi
+
+          echo "is_pending=true" >> $GITHUB_OUTPUT
+          echo "cname_name=$CNAME_NAME" >> $GITHUB_OUTPUT
+          echo "cname_value=$CNAME_VALUE" >> $GITHUB_OUTPUT
+
+      - name: Configure management account credentials (for cert DNS validation)
+        if: steps.request-cert.outputs.is_pending == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_MGMT_ROLE_ARN }}
+          aws-region: eu-central-1
+
+      - name: Add ACM validation CNAME to Route53
+        if: steps.request-cert.outputs.is_pending == 'true'
+        run: |
+          CNAME_NAME="${{ steps.request-cert.outputs.cname_name }}"
+          CNAME_VALUE="${{ steps.request-cert.outputs.cname_value }}"
+          echo "Adding/upserting validation CNAME in Route53: $CNAME_NAME -> $CNAME_VALUE"
+          aws route53 change-resource-record-sets \
+            --hosted-zone-id Z079841559W4HJ5A3Q2Y \
+            --change-batch '{
+              "Changes": [{
+                "Action": "UPSERT",
+                "ResourceRecordSet": {
+                  "Name": "'"${CNAME_NAME}"'",
+                  "Type": "CNAME",
+                  "TTL": 300,
+                  "ResourceRecords": [{"Value": "'"${CNAME_VALUE}"'"}]
+                }
+              }]
+            }'
+          echo "Validation CNAME added."
+
+      - name: Re-configure deploy account credentials (post cert DNS)
+        if: steps.request-cert.outputs.is_pending == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: eu-central-1
+
+      - name: Wait for ACM certificate validation
+        id: ensure-cert
+        run: |
+          CERT_ARN="${{ steps.request-cert.outputs.cert_arn }}"
+          IS_PENDING="${{ steps.request-cert.outputs.is_pending }}"
+
+          if [ "$IS_PENDING" = "true" ]; then
+            # aws acm wait polls every 60s for up to 40 minutes.
+            echo "Waiting for certificate validation (DNS CNAME now in Route53)..."
+            aws acm wait certificate-validated --certificate-arn "$CERT_ARN"
+            echo "Certificate issued: $CERT_ARN"
+          else
+            echo "Certificate already issued: $CERT_ARN"
+          fi
 
           echo "cert_arn=$CERT_ARN" >> $GITHUB_OUTPUT
 
