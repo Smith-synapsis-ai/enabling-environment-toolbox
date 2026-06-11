@@ -27,7 +27,7 @@ export default function TransparencyPage() {
           <h2 className="text-2xl font-bold text-gray-900">Model & Agent Architecture</h2>
         </div>
         <p className="text-gray-600 leading-relaxed mb-6">
-          The Scaling Challenge Assistant is powered by <strong>Claude claude-sonnet-4-5</strong> (Anthropic), accessed
+          The Scaling Challenge Assistant is powered by <strong>Claude Sonnet 4.5</strong> (Anthropic), accessed
           via the Anthropic API. It operates as a <strong>multi-agent orchestrator</strong>: when you submit a
           challenge, the system runs a pipeline that includes a triage step (interpreting your challenge and
           geography), a corpus search step (matching your challenge against the curated tool database), and a
