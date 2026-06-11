@@ -263,10 +263,28 @@ jobs:
           IS_PENDING="${{ steps.request-cert.outputs.is_pending }}"
 
           if [ "$IS_PENDING" = "true" ]; then
-            # aws acm wait polls every 60s for up to 40 minutes.
             echo "Waiting for certificate validation (DNS CNAME now in Route53)..."
-            aws acm wait certificate-validated --certificate-arn "$CERT_ARN"
-            echo "Certificate issued: $CERT_ARN"
+            # Custom loop: poll every 30s for up to 30 minutes (60 attempts).
+            # 'aws acm wait certificate-validated' uses an underpredictable retry
+            # count on hosted runners; rolling our own is more reliable.
+            MAX=60
+            i=0
+            while [ $i -lt $MAX ]; do
+              STATUS=$(aws acm describe-certificate \
+                --certificate-arn "$CERT_ARN" \
+                --query 'Certificate.Status' --output text)
+              echo "  [$(date -u +%H:%M:%S)] attempt $((i+1))/$MAX: status=$STATUS"
+              if [ "$STATUS" = "ISSUED" ]; then
+                echo "Certificate issued: $CERT_ARN"
+                break
+              fi
+              i=$((i+1))
+              [ $i -lt $MAX ] && sleep 30
+            done
+            if [ "$STATUS" != "ISSUED" ]; then
+              echo "ERROR: Certificate not issued after $((MAX*30))s"
+              exit 1
+            fi
           else
             echo "Certificate already issued: $CERT_ARN"
           fi
