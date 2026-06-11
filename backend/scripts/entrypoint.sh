@@ -51,7 +51,10 @@ fi
 
 # ── Start Litestream replication daemon ──────────────────────────────────────
 if [ -n "${LITESTREAM_S3_PATH:-}" ]; then
-    echo "Starting Litestream replication daemon..."
+    # Derive bucket name from s3://BUCKET/path so litestream.yml can reference
+    # it via ${LITESTREAM_S3_BUCKET} without a hardcoded account ID.
+    export LITESTREAM_S3_BUCKET=$(echo "${LITESTREAM_S3_PATH}" | sed 's|s3://||' | cut -d'/' -f1)
+    echo "Starting Litestream replication daemon (bucket: $LITESTREAM_S3_BUCKET)..."
     litestream replicate -config /etc/litestream.yml &
     LITESTREAM_PID=$!
     echo "Litestream PID: $LITESTREAM_PID"
