@@ -30,7 +30,9 @@ jobs:
           pip install pytest
 
       - name: Run pytest
+        working-directory: backend
         run: python -m pytest --tb=short -q
+        # Scoped to backend/ — pipeline/ tests require OPENAI_API_KEY at import time.
         # Smoke-DB tests (test_evidence_drilldown.py) skip automatically
         # when evidence_smoke.db is absent — no flag needed.
 
