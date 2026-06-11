@@ -28,8 +28,11 @@ Parameters:
 
   CertificateArn:
     Type: String
-    Default: "arn:aws:acm:eu-central-1:919959486181:certificate/4d7e0a95-d953-4374-8b53-b5a94839180e"
-    Description: ACM wildcard certificate for *.synapsis-analytics.com
+    Default: ""
+    Description: >-
+      ACM certificate ARN for the HTTPS listener.
+      Must be in the same AWS account as the ALB.
+      Leave empty to skip the HTTPS listener (HTTP only — for testing only).
 
   ImageUri:
     Type: String
@@ -39,6 +42,15 @@ Parameters:
     Type: String
     Default: "s3://ee-toolbox-retrieval-207258148366"
     Description: S3 base URI for retrieval artifacts (evidence corpus, embeddings)
+
+# =============================================================================
+# Conditions
+# =============================================================================
+Conditions:
+  # HTTPS listener is only created when a valid ACM cert ARN is supplied.
+  # The deploy workflow always ensures a cert exists before deploying; this
+  # condition lets the template be deployed manually (HTTP only) for testing.
+  HasCert: !Not [!Equals [!Ref CertificateArn, ""]]
 
 # =============================================================================
 # Resources
@@ -202,7 +214,9 @@ Resources:
                   - ecr:BatchGetImage
                   - ecr:GetDownloadUrlForLayer
                   - ecr:BatchCheckLayerAvailability
-                Resource: !Sub "arn:aws:ecr:eu-central-1:${AWS::AccountId}:repository/ee-toolbox-backend"
+                # Repo name is env-prefixed (e.g. ee-toolbox-prd-backend) to
+                # match what the deploy workflow creates.
+                Resource: !Sub "arn:aws:ecr:eu-central-1:${AWS::AccountId}:repository/ee-toolbox-${Environment}-backend"
               # S3 - Litestream replication (sessions bucket)
               - Sid: LitestreamS3
                 Effect: Allow
@@ -343,7 +357,9 @@ Resources:
   AutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     DependsOn:
-      - HTTPSListener
+      # HTTPSListener is conditional (HasCert); do NOT list it here.
+      # Depending on HTTPListener is sufficient: it ensures the ALB + TG are
+      # wired up before instances register.
       - HTTPListener
     Properties:
       AutoScalingGroupName: !Sub "ee-toolbox-${Environment}"
@@ -430,10 +446,11 @@ Resources:
           Value: ee-toolbox
 
   # ---------------------------------------------------------------------------
-  # HTTPS Listener (443)
+  # HTTPS Listener (443) — only created when a valid CertificateArn is given.
   # ---------------------------------------------------------------------------
   HTTPSListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: HasCert
     Properties:
       LoadBalancerArn: !Ref ALB
       Port: 443
@@ -460,20 +477,6 @@ Resources:
             Port: "443"
             StatusCode: HTTP_301
 
-  # ---------------------------------------------------------------------------
-  # Route 53 - API DNS Record
-  # ---------------------------------------------------------------------------
-  APIDNSRecord:
-    Type: AWS::Route53::RecordSet
-    Properties:
-      HostedZoneId: Z079841559W4HJ5A3Q2Y
-      Name: api-ee-toolbox.synapsis-analytics.com
-      Type: A
-      AliasTarget:
-        HostedZoneId: !GetAtt ALB.CanonicalHostedZoneID
-        DNSName: !GetAtt ALB.DNSName
-        EvaluateTargetHealth: true
-
 # =============================================================================
 # Outputs
 # =============================================================================
@@ -483,6 +486,12 @@ Outputs:
     Value: !GetAtt ALB.DNSName
     Export:
       Name: ee-toolbox-ALBDnsName
+
+  ALBCanonicalHostedZoneID:
+    Description: ALB canonical hosted zone ID (needed for Route53 alias records)
+    Value: !GetAtt ALB.CanonicalHostedZoneID
+    Export:
+      Name: ee-toolbox-ALBCanonicalHostedZoneID
 
   APIUrl:
     Description: Backend API URL

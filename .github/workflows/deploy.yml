@@ -148,18 +148,53 @@ jobs:
             --filters "Name=vpc-id,Values=$VPC_ID" \
             --query "Subnets[*].SubnetId" --output text | tr '\t' ',')
 
-          # Get the wildcard cert for *.synapsis-analytics.com
+          echo "vpc_id=$VPC_ID" >> $GITHUB_OUTPUT
+          echo "subnets=$SUBNETS" >> $GITHUB_OUTPUT
+
+          echo "VPC: $VPC_ID"
+          echo "Subnets: $SUBNETS"
+
+      # ----------------------------------------------------------------
+      # 4b. Ensure ACM certificate exists in this account.
+      #     The ALB HTTPS listener requires a cert in the SAME account.
+      #     The DNS validation CNAME for *.synapsis-analytics.com is
+      #     already in the Route53 hosted zone (managed by the MGMT
+      #     account), so ACM auto-validates any new cert request without
+      #     needing us to add extra DNS records.
+      # ----------------------------------------------------------------
+      - name: Ensure ACM certificate
+        id: ensure-cert
+        run: |
+          # 1. Check for an existing *.synapsis-analytics.com cert in this account
           CERT_ARN=$(aws acm list-certificates \
             --query "CertificateSummaryList[?DomainName=='*.synapsis-analytics.com'].CertificateArn | [0]" \
             --output text)
 
-          echo "vpc_id=$VPC_ID" >> $GITHUB_OUTPUT
-          echo "subnets=$SUBNETS" >> $GITHUB_OUTPUT
-          echo "cert_arn=$CERT_ARN" >> $GITHUB_OUTPUT
+          if [ -n "$CERT_ARN" ] && [ "$CERT_ARN" != "None" ]; then
+            echo "Found existing wildcard cert: $CERT_ARN"
+            echo "cert_arn=$CERT_ARN" >> $GITHUB_OUTPUT
+            exit 0
+          fi
 
-          echo "VPC: $VPC_ID"
-          echo "Subnets: $SUBNETS"
-          echo "Certificate: $CERT_ARN"
+          # 2. No cert found — request one.
+          #    The validation CNAME (_4c7a214a48006081d41bcb820b99f1f4.synapsis-analytics.com.)
+          #    already exists in Route53 so ACM will auto-validate.
+          echo "No *.synapsis-analytics.com cert in this account. Requesting one..."
+          CERT_ARN=$(aws acm request-certificate \
+            --domain-name "*.synapsis-analytics.com" \
+            --subject-alternative-names "synapsis-analytics.com" \
+            --validation-method DNS \
+            --idempotency-token "eetoolbox${ENV}wc" \
+            --query CertificateArn --output text)
+          echo "Requested cert: $CERT_ARN"
+
+          # 3. Wait for ACM to pick up the pre-existing validation CNAME and issue the cert.
+          #    aws acm wait polls every 60s for up to 40 minutes.
+          echo "Waiting for certificate validation (DNS CNAME already in Route53)..."
+          aws acm wait certificate-validated --certificate-arn "$CERT_ARN"
+          echo "Certificate issued: $CERT_ARN"
+
+          echo "cert_arn=$CERT_ARN" >> $GITHUB_OUTPUT
 
       # ----------------------------------------------------------------
       # 5. Setup Node.js + Build frontend (env-specific API URL)
@@ -314,7 +349,7 @@ jobs:
             {"ParameterKey":"Environment","ParameterValue":"${ENV}"},
             {"ParameterKey":"VpcId","ParameterValue":"${{ steps.vpc.outputs.vpc_id }}"},
             {"ParameterKey":"SubnetIds","ParameterValue":"${{ steps.vpc.outputs.subnets }}"},
-            {"ParameterKey":"CertificateArn","ParameterValue":"${{ steps.vpc.outputs.cert_arn }}"},
+            {"ParameterKey":"CertificateArn","ParameterValue":"${{ steps.ensure-cert.outputs.cert_arn }}"},
             {"ParameterKey":"ImageUri","ParameterValue":"${IMAGE_URI}"}
           ]
           PARAMS_EOF
@@ -334,7 +369,7 @@ jobs:
                 Environment=$ENV \
                 VpcId=${{ steps.vpc.outputs.vpc_id }} \
                 SubnetIds=${{ steps.vpc.outputs.subnets }} \
-                CertificateArn=${{ steps.vpc.outputs.cert_arn }} \
+                CertificateArn=${{ steps.ensure-cert.outputs.cert_arn }} \
                 ImageUri=$IMAGE_URI \
               --capabilities CAPABILITY_NAMED_IAM \
               --no-fail-on-empty-changeset
