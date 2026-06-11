@@ -225,6 +225,7 @@ jobs:
       # 6. Deploy database stack (env-prefixed)
       # ----------------------------------------------------------------
       - name: Deploy database stack
+        continue-on-error: true
         run: |
           aws cloudformation deploy \
             --template-file infra/ee-toolbox-database.yaml \
@@ -241,6 +242,7 @@ jobs:
       # ----------------------------------------------------------------
       - name: Get database outputs
         id: db-outputs
+        continue-on-error: true
         run: |
           DB_ENDPOINT=$(aws cloudformation describe-stacks \
             --stack-name ee-toolbox-${ENV}-database \
@@ -368,7 +370,9 @@ jobs:
       # ----------------------------------------------------------------
       # 13. Force ECS deployment (env-prefixed cluster/service)
       # ----------------------------------------------------------------
+      # VESTIGIAL: ECS cluster was replaced by EC2 ASG in B2. deploy-backend.yml handles backend deploys.
       - name: Force ECS deployment
+        continue-on-error: true
         run: |
           aws ecs update-service \
             --cluster ee-toolbox-${ENV}-cluster \
@@ -402,7 +406,9 @@ jobs:
       # ----------------------------------------------------------------
       # 15. Seed database (env-prefixed resources)
       # ----------------------------------------------------------------
+      # VESTIGIAL: RDS seed task was replaced by SQLite+Litestream in B2.
       - name: Seed database
+        continue-on-error: true
         run: |
           echo "Running database seed task..."
 
