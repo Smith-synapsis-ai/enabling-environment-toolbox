@@ -20,7 +20,7 @@ jobs:
   fix-grace-period:
     name: Update ASG health check grace period
     runs-on: ubuntu-latest
-    environment: mgmt
+    environment: prd
     env:
       AWS_REGION: eu-central-1
       ASG_NAME: ee-toolbox-prd
