@@ -73,15 +73,16 @@ jobs:
           ")
           echo "DB password extracted (length: ${#DB_PASSWORD})"
 
-          # Construct URL variants
-          DATABASE_URL="postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
-          DATABASE_URL_SYNC="postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+          # Construct URL variants and export so Python sees them in os.environ
+          export DATABASE_URL="postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+          export DATABASE_URL_SYNC="postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
 
-          echo "DATABASE_URL host check: $(echo $DATABASE_URL | python3 -c "import sys; u=sys.stdin.read().strip(); print(u.split('@')[1].split('/')[0] if '@' in u else 'parse-error')")"
+          echo "DATABASE_URL host check: $(echo "$DATABASE_URL" | python3 -c "import sys; u=sys.stdin.read().strip(); print(u.split('@')[1].split('/')[0] if '@' in u else 'parse-error')")"
 
-          # Write combined secret (ANTHROPIC + OPENAI from GH env secrets, DB from RDS)
+          # Write combined secret — all 4 values available as env vars (ANTHROPIC/OPENAI
+          # come from step-level env:, DATABASE_URL* exported just above)
           PAYLOAD=$(python3 -c "
-          import json, sys, os
+          import json, os
           d = {
               'ANTHROPIC_API_KEY': os.environ['ANTHROPIC_API_KEY'],
               'OPENAI_API_KEY':    os.environ['OPENAI_API_KEY'],
@@ -89,7 +90,7 @@ jobs:
               'DATABASE_URL_SYNC': os.environ['DATABASE_URL_SYNC'],
           }
           print(json.dumps(d))
-          " DATABASE_URL="$DATABASE_URL" DATABASE_URL_SYNC="$DATABASE_URL_SYNC")
+          ")
 
           echo "Writing updated secret to: $API_KEYS_SECRET"
           aws secretsmanager put-secret-value \
