@@ -155,7 +155,7 @@ async def _catalog_search_impl(
     background_tasks: BackgroundTasks,
     db: AsyncSession,
 ) -> CatalogSearchResponse:
-    """Inner implementation — wrapped by catalog_search for debug error reporting."""
+    """Inner implementation for catalog_search."""
     # Build the dynamic WHERE clause
     conditions: list[str] = ["is_visible = true"]
     params: dict = {}
