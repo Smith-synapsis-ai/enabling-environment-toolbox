@@ -287,12 +287,14 @@ export default function AssistantPage() {
   }, [append, sendChallenge]);
 
   const handleApprove = useCallback(() => {
+    append({ kind: 'notice', id: uid('decision'), text: '✓ Pathway approved — proceeding to evidence drill-down' });
     sendTurn(APPROVE_MESSAGE);
-  }, [sendTurn]);
+  }, [append, sendTurn]);
 
   const handleRefine = useCallback(() => {
+    append({ kind: 'notice', id: uid('decision'), text: '↩ Refinement requested — specify your changes in the box below' });
     setRefineSeq(s => s + 1);
-  }, []);
+  }, [append]);
 
   const handleNewSession = useCallback(() => {
     sessionIdRef.current = newAssistantSessionId();

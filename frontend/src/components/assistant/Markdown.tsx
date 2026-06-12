@@ -1,4 +1,5 @@
 import ReactMarkdown from 'react-markdown';
+import { useNavigate } from 'react-router-dom';
 
 interface MarkdownProps {
   children: string;
@@ -11,6 +12,7 @@ interface MarkdownProps {
  * styles are mapped explicitly to Tailwind classes).
  */
 export default function Markdown({ children, tone = 'dark' }: MarkdownProps) {
+  const navigate = useNavigate();
   const base = tone === 'dark' ? 'text-white/90' : 'text-gray-800';
   const heading = tone === 'dark' ? 'text-white' : 'text-cgiar-dark';
   const muted = tone === 'dark' ? 'text-white/60' : 'text-gray-500';
@@ -31,12 +33,21 @@ export default function Markdown({ children, tone = 'dark' }: MarkdownProps) {
           strong: ({ children }) => <strong className={`font-semibold ${heading}`}>{children}</strong>,
           em: ({ children }) => <em className={muted}>{children}</em>,
           a: ({ href, children }) => {
-            const isInternal = href && (href.startsWith('/') || href.startsWith(window.location.origin));
-            return isInternal ? (
-              <a href={href} className={`underline ${link}`}>
-                {children}
-              </a>
-            ) : (
+            if (!href) return <span>{children}</span>;
+            const isInternal = href.startsWith('/') || href.startsWith(window.location.origin);
+            if (isInternal) {
+              const path = href.startsWith('/') ? href : href.slice(window.location.origin.length);
+              return (
+                <a
+                  href={href}
+                  onClick={(e) => { e.preventDefault(); navigate(path); }}
+                  className={`underline cursor-pointer ${link}`}
+                >
+                  {children}
+                </a>
+              );
+            }
+            return (
               <a href={href} target="_blank" rel="noopener noreferrer" className={`underline ${link}`}>
                 {children}
               </a>

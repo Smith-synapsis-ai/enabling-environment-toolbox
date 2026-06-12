@@ -33,12 +33,16 @@ export default function CatalogPage({ onToolViewed }: CatalogPageProps) {
   const [selectedToolId, setSelectedToolId] = useState<string | null>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
-  // On mount: read ?q= query param and pre-fill keyword filter (for tool deep-links from chat)
+  // On mount: read ?q= and ?tool= query params (for deep-links from chat messages)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const qParam = params.get('q');
     if (qParam) {
       updateFilter('keyword', qParam);
+    }
+    const toolParam = params.get('tool');
+    if (toolParam) {
+      setSelectedToolId(toolParam);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
