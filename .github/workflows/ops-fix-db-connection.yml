@@ -44,7 +44,10 @@ jobs:
           DB_HOST="ee-toolbox-prd-db.cl6246422thq.eu-central-1.rds.amazonaws.com"
           DB_USER="eetoolbox"
           DB_NAME="ee_toolbox"
-          echo "DB_PASSWORD=$DB_PASSWORD" >> "$GITHUB_ENV"
+          # Use multiline syntax to safely handle special chars in the password
+          echo "DB_PASSWORD<<ENVEOF" >> "$GITHUB_ENV"
+          echo "$DB_PASSWORD" >> "$GITHUB_ENV"
+          echo "ENVEOF" >> "$GITHUB_ENV"
           echo "DB_HOST=$DB_HOST" >> "$GITHUB_ENV"
           echo "DB_USER=$DB_USER" >> "$GITHUB_ENV"
           echo "DB_NAME=$DB_NAME" >> "$GITHUB_ENV"
@@ -62,10 +65,23 @@ jobs:
           echo "OPENAI_KEY=$OPENAI_KEY" >> "$GITHUB_ENV"
           echo "API keys loaded."
 
-      - name: Update ee-toolbox-api-keys with DATABASE_URL values
+      - name: Build DB URLs and write to env
         run: |
           DB_URL="postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}"
           DB_URL_SYNC="postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}"
+          # Use a delimiter that won't appear in a connection string
+          echo "DB_URL<<ENVEOF" >> "$GITHUB_ENV"
+          echo "$DB_URL" >> "$GITHUB_ENV"
+          echo "ENVEOF" >> "$GITHUB_ENV"
+          echo "DB_URL_SYNC<<ENVEOF" >> "$GITHUB_ENV"
+          echo "$DB_URL_SYNC" >> "$GITHUB_ENV"
+          echo "ENVEOF" >> "$GITHUB_ENV"
+          echo "DB URLs written to GITHUB_ENV."
+
+      - name: Update ee-toolbox-api-keys with DATABASE_URL values
+        run: |
+          # All four values are now in $GITHUB_ENV and available as env vars.
+          # Use python json.dumps to safely escape any special characters.
           NEW_SECRET=$(python3 -c "
           import json, os
           d = {
@@ -75,7 +91,7 @@ jobs:
               'DATABASE_URL_SYNC': os.environ['DB_URL_SYNC'],
           }
           print(json.dumps(d))
-          " DB_URL="$DB_URL" DB_URL_SYNC="$DB_URL_SYNC")
+          ")
           aws secretsmanager put-secret-value \
             --secret-id ee-toolbox-api-keys \
             --region "$AWS_REGION" \
