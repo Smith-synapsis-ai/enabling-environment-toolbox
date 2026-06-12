@@ -4,10 +4,10 @@ name: Ops — Fix DB Initializing (C12)
 # {"database":"initializing"} after an instance refresh or restart.
 #
 # Root cause: litestream restore fails silently (incomplete WAL in latest
-# generation), leaving no SQLite file at AGENT_STORE_PATH=/app/backend/data/
-# agent_store.db. The litestream replicate daemon is already running inside
-# the container but is waiting for the file to appear. Creating an empty
-# SQLite DB at that path is sufficient — litestream picks it up within seconds.
+# generation), leaving no SQLite file at /app/backend/data/agent_store.db.
+# The litestream replicate daemon is already running inside the container
+# but waiting for the file to appear. Creating an empty SQLite DB at that
+# path is sufficient — litestream picks it up within seconds.
 #
 # Mechanism: SSM RunShellScript → docker exec into running container → Python
 # sqlite3 creates an empty DB. Safe to re-run (no-op if file already exists).
@@ -68,79 +68,50 @@ jobs:
           fi
           echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
 
-      - name: Health check BEFORE fix
-        run: |
-          INSTANCE_ID="${{ steps.instance.outputs.instance_id }}"
-          echo "=== Health before fix ==="
-          CMD_ID=$(aws ssm send-command \
-            --instance-ids "$INSTANCE_ID" \
-            --document-name "AWS-RunShellScript" \
-            --parameters 'commands=["curl -s http://localhost:8099/health || echo CURL_FAILED"]' \
-            --query "Command.CommandId" --output text)
-          sleep 6
-          aws ssm get-command-invocation \
-            --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
-            --query 'StandardOutputContent' --output text || true
-
-      - name: Create DB file via docker exec
+      - name: Create SQLite file and verify health
         id: fix
         run: |
           INSTANCE_ID="${{ steps.instance.outputs.instance_id }}"
+          ENV="${{ github.event.inputs.environment }}"
 
-          # Write the fix script to a file, then base64-encode it to avoid
-          # shell quoting hell when passing nested quotes to SSM parameters.
-          cat > /tmp/fix_db.py << 'PYEOF'
-          import os, sqlite3
-          db = "/app/backend/data/agent_store.db"
-          os.makedirs(os.path.dirname(db), exist_ok=True)
-          if os.path.exists(db):
-              print("DB already exists:", db)
-          else:
-              conn = sqlite3.connect(db)
-              conn.execute("CREATE TABLE IF NOT EXISTS _init (id INTEGER PRIMARY KEY)")
-              conn.commit()
-              conn.close()
-              print("Created fresh DB:", db)
-          # Quick verify
-          conn2 = sqlite3.connect(db)
-          conn2.execute("SELECT 1")
-          conn2.close()
-          print("Verify OK")
-          PYEOF
-
-          B64=$(base64 -w0 /tmp/fix_db.py)
-
-          # SSM commands: decode script, find container, docker exec
-          # Using a JSON file to avoid shell quoting issues entirely
-          python3 - << HEREDOC
-          import json, subprocess, sys
-
-          instance_id = "$INSTANCE_ID"
-          b64 = "$B64"
-
+          # Build SSM payload as a JSON file using Python to avoid shell quoting issues.
+          # The container name ee-toolbox-backend is set by the UserData docker run --name flag.
+          python3 -c "
+          import json
+          container = 'ee-toolbox-backend'
+          db_path = '/app/backend/data/agent_store.db'
+          py_cmd = (
+              'import os,sqlite3;'
+              f'db=\"{db_path}\";'
+              'os.makedirs(os.path.dirname(db),exist_ok=True);'
+              'print(\"already exists\") if os.path.exists(db) else '
+              '[sqlite3.connect(db).execute(\"CREATE TABLE IF NOT EXISTS _init (id INTEGER PRIMARY KEY)\"),print(\"created\")];'
+              'conn=sqlite3.connect(db);conn.execute(\"SELECT 1\");conn.close();print(\"verify ok\")'
+          )
           commands = [
-              f"echo {b64} | base64 -d > /tmp/fix_db.py",
-              "CONTAINER=$(docker ps --format '{{.Names}}' | grep ee-toolbox | head -1)",
-              "echo \"Container: $CONTAINER\"",
-              "[ -n \"$CONTAINER\" ] || { echo 'ERROR: no ee-toolbox container'; docker ps; exit 1; }",
-              "docker exec \"$CONTAINER\" python3 /tmp/fix_db.py",
-              "sleep 3",
-              "echo '=== Health after fix ==='; curl -s http://localhost:8099/health"
+              'echo === Health BEFORE fix ===',
+              'curl -sf http://localhost:8099/health || echo health-unreachable',
+              f'echo === Creating DB in container {container} ===',
+              f'docker exec {container} python3 -c \"{py_cmd}\"',
+              'sleep 3',
+              'echo === Health AFTER fix ===',
+              'curl -sf http://localhost:8099/health || echo health-unreachable',
           ]
-
           payload = {
-              "InstanceIds": [instance_id],
-              "DocumentName": "AWS-RunShellScript",
-              "Parameters": {"commands": commands}
+              'InstanceIds': ['$INSTANCE_ID'],
+              'DocumentName': 'AWS-RunShellScript',
+              'Parameters': {'commands': commands}
           }
+          with open('/tmp/ssm_fix.json', 'w') as f:
+              json.dump(payload, f, indent=2)
+          print('Payload written to /tmp/ssm_fix.json')
+          "
 
-          with open("/tmp/ssm_params.json", "w") as f:
-              json.dump(payload, f)
-          print("SSM payload written")
-          HEREDOC
+          echo "=== SSM payload commands ==="
+          python3 -c "import json; d=json.load(open('/tmp/ssm_fix.json')); [print(c) for c in d['Parameters']['commands']]"
 
           CMD_ID=$(aws ssm send-command \
-            --cli-input-json file:///tmp/ssm_params.json \
+            --cli-input-json file:///tmp/ssm_fix.json \
             --query "Command.CommandId" --output text)
 
           echo "SSM command ID: $CMD_ID"
@@ -148,22 +119,30 @@ jobs:
           echo "Waiting 20s for command to complete ..."
           sleep 20
 
-      - name: Show fix output
+      - name: Show fix result
         run: |
           INSTANCE_ID="${{ steps.instance.outputs.instance_id }}"
           CMD_ID="${{ steps.fix.outputs.cmd_id }}"
-          echo "=== SSM command status ==="
+          echo "=== SSM command result ==="
+          STATUS=$(aws ssm get-command-invocation \
+            --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query 'Status' --output text)
+          echo "Status: $STATUS"
+          echo "--- stdout ---"
           aws ssm get-command-invocation \
             --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
-            --query '{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}' \
-            --output table
+            --query 'StandardOutputContent' --output text
+          echo "--- stderr ---"
+          aws ssm get-command-invocation \
+            --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query 'StandardErrorContent' --output text || true
 
-      - name: Wait for canary cycle then check alarms
+      - name: Wait for canary then check alarms
         run: |
-          echo "Waiting 60s for next canary invocation ..."
-          sleep 60
-          echo "=== CloudWatch alarms after DB fix ==="
+          echo "Waiting 90s for next canary invocation and alarm evaluation ..."
+          sleep 90
           ENV="${{ github.event.inputs.environment }}"
+          echo "=== CloudWatch alarms after DB fix ==="
           aws cloudwatch describe-alarms \
             --alarm-name-prefix "ee-toolbox-${ENV}" \
             --query 'MetricAlarms[*].{Name:AlarmName,State:StateValue,Updated:StateUpdatedTimestamp}' \
