@@ -35,7 +35,8 @@ import json
 import logging
 import uuid
 
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File
+import io
 
 # Importing agents.orchestrator also swaps the default in-memory report store
 # for the SQLite-backed one (side effect at module import).  run_challenge is
@@ -224,3 +225,41 @@ async def reap_sessions(max_age_hours: int = 24) -> dict:
     deleted = await store.reap_stale_sessions(max_age_hours=max_age_hours)
     logger.info("Session reap: deleted %d drafts older than %dh", deleted, max_age_hours)
     return {"deleted_count": deleted, "max_age_hours": max_age_hours}
+
+
+@router.post("/api/assistant/upload")
+async def upload_file(file: UploadFile = File(...)):
+    """
+    Accept a file upload, extract its text content, and return it for injection
+    into the agent conversation context.
+    Supports: .txt, .md, .csv, .json, .py, .js, .ts, .html, .xml (plain text)
+    Returns: { "filename": str, "content": str, "char_count": int }
+    """
+    MAX_SIZE = 500_000  # 500 KB limit to avoid context bloat
+
+    content_bytes = await file.read()
+    if len(content_bytes) > MAX_SIZE:
+        return {
+            "filename": file.filename,
+            "content": f"[File too large to process — {len(content_bytes):,} bytes, max {MAX_SIZE:,} bytes. Please paste the relevant excerpt directly into the chat.]",
+            "char_count": 0,
+        }
+
+    # Attempt UTF-8 decode; fall back to latin-1 for binary-ish files
+    try:
+        text = content_bytes.decode("utf-8")
+    except UnicodeDecodeError:
+        try:
+            text = content_bytes.decode("latin-1")
+        except Exception:
+            return {
+                "filename": file.filename,
+                "content": f"[Binary file '{file.filename}' cannot be extracted as text. Please convert to plain text or paste the relevant content directly.]",
+                "char_count": 0,
+            }
+
+    return {
+        "filename": file.filename,
+        "content": text,
+        "char_count": len(text),
+    }

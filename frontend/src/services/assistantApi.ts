@@ -58,3 +58,18 @@ export async function fetchDraft(sessionId: string): Promise<ReportDraftData | n
   }
   return (await res.json()) as ReportDraftData;
 }
+
+/** Upload a file to the backend and return its extracted text content. */
+export async function uploadFile(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch(`${apiBase()}/api/assistant/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) {
+    throw new Error(`Upload failed: ${res.status} ${res.statusText}`);
+  }
+  const data = await res.json() as { filename: string; content: string; char_count: number };
+  return data.content;
+}

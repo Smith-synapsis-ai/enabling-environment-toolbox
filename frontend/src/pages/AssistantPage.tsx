@@ -6,6 +6,7 @@ import {
   getAssistantSessionId,
   newAssistantSessionId,
   setAssistantSessionId,
+  uploadFile,
 } from '../services/assistantApi';
 import type {
   AssistantEvent,
@@ -303,10 +304,19 @@ export default function AssistantPage() {
     setDraftError(null);
   }, []);
 
-  const handleAttach = useCallback((files: FileList) => {
+  const handleAttach = useCallback(async (files: FileList) => {
     trackEvent('feature_file_upload');
-    const names = Array.from(files).map(f => f.name).join(', ');
-    sendTurn(`[Attached files: ${names}]`);
+    const fileArray = Array.from(files);
+    const parts: string[] = [];
+    for (const file of fileArray) {
+      try {
+        const content = await uploadFile(file);
+        parts.push(`--- Attached file: ${file.name} ---\n${content}\n--- End of ${file.name} ---`);
+      } catch {
+        parts.push(`[Could not extract content from ${file.name} — please paste the relevant text directly]`);
+      }
+    }
+    sendTurn(parts.join('\n\n'));
   }, [sendTurn]);
 
   // ----- degraded-state banner -----------------------------------------------
