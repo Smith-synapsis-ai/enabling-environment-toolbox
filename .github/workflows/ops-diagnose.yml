@@ -1,0 +1,138 @@
+name: Ops — Diagnose Container (read-only)
+
+# Read-only diagnostic workflow: SSM into EC2, run docker ps + docker logs.
+# Use to understand why the container is not healthy without modifying state.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options: [prd, dev]
+        default: prd
+      instance_id:
+        description: 'EC2 instance ID (blank = auto-discover from ASG)'
+        required: false
+        type: string
+      log_lines:
+        description: 'Number of log lines to tail'
+        required: false
+        default: '100'
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: eu-central-1
+
+jobs:
+  diagnose:
+    name: Diagnose container on ${{ github.event.inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve instance ID
+        id: instance
+        run: |
+          PROVIDED="${{ github.event.inputs.instance_id }}"
+          ENV="${{ github.event.inputs.environment }}"
+          if [ -n "$PROVIDED" ]; then
+            INSTANCE_ID="$PROVIDED"
+            echo "Using provided instance: $INSTANCE_ID"
+          else
+            echo "Auto-discovering instance from ASG ee-toolbox-${ENV} ..."
+            INSTANCE_ID=$(aws autoscaling describe-auto-scaling-groups \
+              --auto-scaling-group-names "ee-toolbox-${ENV}" \
+              --query "AutoScalingGroups[0].Instances[?LifecycleState=='InService'].InstanceId | [0]" \
+              --output text)
+            echo "Discovered: $INSTANCE_ID"
+          fi
+          if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" = "None" ]; then
+            echo "ERROR: No InService instance found in ASG ee-toolbox-${ENV}"
+            exit 1
+          fi
+          echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+
+      - name: Run docker diagnostics via SSM
+        id: diag
+        run: |
+          INSTANCE_ID="${{ steps.instance.outputs.instance_id }}"
+          LOG_LINES="${{ github.event.inputs.log_lines }}"
+
+          python3 -c "
+          import json, base64
+
+          container = 'ee-toolbox-backend'
+          log_lines = '${LOG_LINES}'
+
+          py_script = (
+              'import subprocess\n'
+              'print(\"=== date ===\")\n'
+              'subprocess.run([\"date\",\"-u\"], check=False)\n'
+              'print(\"=== docker ps -a ===\")\n'
+              'r = subprocess.run([\"docker\",\"ps\",\"-a\",\"--format\",\"table {{.Names}}\\t{{.Status}}\\t{{.Ports}}\"], capture_output=True, text=True)\n'
+              'print(r.stdout)\n'
+              'print(\"=== docker inspect state ===\")\n'
+              'r2 = subprocess.run([\"docker\",\"inspect\",\"--format\",\"{{.State.Status}} restarts={{.RestartCount}} error={{.State.Error}}\",\"' + container + '\"], capture_output=True, text=True)\n'
+              'print(r2.stdout or r2.stderr)\n'
+              'print(\"=== docker logs --tail ' + log_lines + ' ===\")\n'
+              'r3 = subprocess.run([\"docker\",\"logs\",\"--tail\",\"' + log_lines + '\",\"' + container + '\"], capture_output=True, text=True)\n'
+              'print(\"STDOUT:\", r3.stdout[-4000:] if r3.stdout else \"(empty)\")\n'
+              'print(\"STDERR:\", r3.stderr[-4000:] if r3.stderr else \"(empty)\")\n'
+              'print(\"=== health check ===\")\n'
+              'r4 = subprocess.run([\"curl\",\"-sf\",\"http://localhost:8099/health\"], capture_output=True, text=True)\n'
+              'print(r4.stdout or \"health-unreachable\")\n'
+          )
+          b64 = base64.b64encode(py_script.encode()).decode()
+          cmd = ('python3 -c ' + chr(39) +
+                 'import base64; exec(base64.b64decode(b' +
+                 chr(34) + b64 + chr(34) +
+                 ').decode())' + chr(39))
+          payload = {
+              'InstanceIds': ['$INSTANCE_ID'],
+              'DocumentName': 'AWS-RunShellScript',
+              'Parameters': {'commands': [
+                  'echo === SSM reached instance ===',
+                  cmd,
+              ]}
+          }
+          with open('/tmp/ssm_diag.json', 'w') as f:
+              json.dump(payload, f, indent=2)
+          print('Payload written.')
+          "
+
+          CMD_ID=$(aws ssm send-command \
+            --cli-input-json file:///tmp/ssm_diag.json \
+            --query "Command.CommandId" --output text)
+          echo "SSM command ID: $CMD_ID"
+          echo "cmd_id=$CMD_ID" >> $GITHUB_OUTPUT
+          echo "Waiting 30s for command to complete..."
+          sleep 30
+
+      - name: Show diagnostic results
+        run: |
+          INSTANCE_ID="${{ steps.instance.outputs.instance_id }}"
+          CMD_ID="${{ steps.diag.outputs.cmd_id }}"
+          STATUS=$(aws ssm get-command-invocation \
+            --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query 'Status' --output text)
+          echo "SSM command status: $STATUS"
+          echo "=== STDOUT ==="
+          aws ssm get-command-invocation \
+            --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query 'StandardOutputContent' --output text
+          echo "=== STDERR ==="
+          aws ssm get-command-invocation \
+            --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query 'StandardErrorContent' --output text || true
