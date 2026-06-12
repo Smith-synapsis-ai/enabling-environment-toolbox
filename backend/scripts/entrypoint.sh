@@ -63,15 +63,25 @@ if [ -n "${LITESTREAM_S3_PATH:-}" ]; then
 fi
 
 # ── Pre-cache Qwen3-Embedding-0.6B (required for semantic hybrid search) ─────
-# retrieval_tools.py sets HF_HUB_OFFLINE=1 via setdefault to prevent HEAD
-# requests at query time; the model must therefore be cached before uvicorn
-# starts. HF_HUB_OFFLINE=0 as a prefix allows the download for this one step.
+# The model is baked into the Docker image at build time (HF_HOME=/app/.cache/huggingface).
+# This step runs with HF_HUB_OFFLINE=1 to verify the cache is present without
+# making any network requests. Falls back to a live download only if cache is missing
+# (e.g., when running an older image without the baked model).
 echo "Pre-caching embedding model (Qwen/Qwen3-Embedding-0.6B)..."
-HF_HUB_OFFLINE=0 python3 -c "
+if HF_HUB_OFFLINE=1 python3 -c "
 from sentence_transformers import SentenceTransformer
 m = SentenceTransformer('Qwen/Qwen3-Embedding-0.6B')
-print('Embedding model cached successfully')
+print('Embedding model found in cache (no download needed)')
+" 2>/dev/null; then
+    echo "Model ready (from image cache)."
+else
+    echo "Model not in cache — downloading from HuggingFace (this may take several minutes)..."
+    HF_HUB_OFFLINE=0 python3 -c "
+from sentence_transformers import SentenceTransformer
+m = SentenceTransformer('Qwen/Qwen3-Embedding-0.6B')
+print('Embedding model downloaded and cached successfully')
 " && echo "Model ready." || echo "WARNING: model pre-cache failed — corpus_search may error on first use"
+fi
 
 # ── Run DB migrations ─────────────────────────────────────────────────────────
 # Alembic reads DATABASE_URL_SYNC from env (set by UserData / ECS task def).
