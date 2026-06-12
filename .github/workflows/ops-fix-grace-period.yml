@@ -1,13 +1,13 @@
 name: "Ops: Fix ASG Grace Period (B2)"
 
 # One-off workflow to update the HealthCheckGracePeriod on the production
-# ASG (ee-toolbox-prd) from 600s to 1200s.
+# ASG (ee-toolbox-prd) to 2700s.
 #
 # The boot sequence (dnf install docker + docker pull + S3 artifact load +
-# embedding model download) takes 12-18 minutes on fresh AL2023 instances.
-# With a 600s grace period, ELB health check failures trigger instance
+# embedding model download) can take up to 25 minutes on fresh AL2023 instances.
+# With a shorter grace period, ELB health check failures trigger instance
 # replacement before the container is ready, creating a crash-replace loop.
-# 1200s gives sufficient runway for the full entrypoint.sh to complete.
+# 2700s (45 min) gives sufficient runway for even the slowest boot.
 
 on:
   workflow_dispatch:
@@ -32,11 +32,11 @@ jobs:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Update ASG health check grace period to 1200s
+      - name: Update ASG health check grace period to 2700s
         run: |
           aws autoscaling update-auto-scaling-group \
             --auto-scaling-group-name "$ASG_NAME" \
-            --health-check-grace-period 1200 \
+            --health-check-grace-period 2700 \
             --region "$AWS_REGION"
           echo "ASG grace period updated."
 
@@ -48,10 +48,10 @@ jobs:
             --query 'AutoScalingGroups[0].HealthCheckGracePeriod' \
             --output text)
           echo "ASG HealthCheckGracePeriod: $GRACE seconds"
-          if [ "$GRACE" -ge 1200 ]; then
+          if [ "$GRACE" -ge 2700 ]; then
             echo "Grace period successfully updated to $GRACE seconds."
           else
-            echo "ERROR: Grace period is $GRACE, expected >= 1200"
+            echo "ERROR: Grace period is $GRACE, expected >= 2700"
             exit 1
           fi
 
