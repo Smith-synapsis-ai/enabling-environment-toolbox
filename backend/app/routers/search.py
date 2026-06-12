@@ -12,7 +12,10 @@ from pathlib import Path
 from typing import Optional
 from uuid import UUID
 
+import traceback
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -149,6 +152,24 @@ async def catalog_search(
     db: AsyncSession = Depends(get_db),
 ):
     """Perform a faceted catalog search with optional keyword matching."""
+    try:
+        return await _catalog_search_impl(body, request, background_tasks, db)
+    except Exception as exc:
+        tb = traceback.format_exc()
+        logger.error("catalog_search UNHANDLED: %s\n%s", exc, tb)
+        return JSONResponse(
+            status_code=500,
+            content={"error": type(exc).__name__, "detail": str(exc), "traceback": tb},
+        )
+
+
+async def _catalog_search_impl(
+    body: CatalogSearchRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession,
+) -> CatalogSearchResponse:
+    """Inner implementation — wrapped by catalog_search for debug error reporting."""
     # Build the dynamic WHERE clause
     conditions: list[str] = ["is_visible = true"]
     params: dict = {}
