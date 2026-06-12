@@ -77,22 +77,34 @@ jobs:
           # Build SSM payload as a JSON file using Python to avoid shell quoting issues.
           # The container name ee-toolbox-backend is set by the UserData docker run --name flag.
           python3 -c "
-          import json
+          import json, base64
           container = 'ee-toolbox-backend'
-          db_path = '/app/backend/data/agent_store.db'
-          py_cmd = (
-              'import os,sqlite3;'
-              f'db=\"{db_path}\";'
-              'os.makedirs(os.path.dirname(db),exist_ok=True);'
-              'print(\"already exists\") if os.path.exists(db) else '
-              '[sqlite3.connect(db).execute(\"CREATE TABLE IF NOT EXISTS _init (id INTEGER PRIMARY KEY)\"),print(\"created\")];'
-              'conn=sqlite3.connect(db);conn.execute(\"SELECT 1\");conn.close();print(\"verify ok\")'
+          py_script = (
+              'import os, sqlite3\n'
+              'db = \'/app/backend/data/agent_store.db\'\n'
+              'os.makedirs(os.path.dirname(db), exist_ok=True)\n'
+              'if os.path.exists(db):\n'
+              '    print(\'already exists\')\n'
+              'else:\n'
+              '    c = sqlite3.connect(db)\n'
+              '    c.execute(\'CREATE TABLE IF NOT EXISTS _init (id INTEGER PRIMARY KEY)\')\n'
+              '    c.commit(); c.close()\n'
+              '    print(\'created\')\n'
+              'c2 = sqlite3.connect(db)\n'
+              'c2.execute(\'SELECT 1\')\n'
+              'c2.close()\n'
+              'print(\'verify ok\')\n'
           )
+          b64 = base64.b64encode(py_script.encode()).decode()
+          cmd = ('docker exec ' + container + ' python3 -c ' +
+                 chr(39) + 'import base64; exec(base64.b64decode(b' +
+                 chr(34) + b64 + chr(34) +
+                 ').decode())' + chr(39))
           commands = [
               'echo === Health BEFORE fix ===',
               'curl -sf http://localhost:8099/health || echo health-unreachable',
-              f'echo === Creating DB in container {container} ===',
-              f'docker exec {container} python3 -c \"{py_cmd}\"',
+              'echo === Creating DB in container ' + container + ' ===',
+              cmd,
               'sleep 3',
               'echo === Health AFTER fix ===',
               'curl -sf http://localhost:8099/health || echo health-unreachable',
@@ -128,6 +140,9 @@ jobs:
             --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
             --query 'Status' --output text)
           echo "Status: $STATUS"
+          if [ "$STATUS" != "Success" ]; then
+            echo "ERROR: SSM command failed with status: $STATUS — see stderr below"
+          fi
           echo "--- stdout ---"
           aws ssm get-command-invocation \
             --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
@@ -136,6 +151,9 @@ jobs:
           aws ssm get-command-invocation \
             --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
             --query 'StandardErrorContent' --output text || true
+          if [ "$STATUS" != "Success" ]; then
+            exit 1
+          fi
 
       - name: Wait for canary then check alarms
         run: |
