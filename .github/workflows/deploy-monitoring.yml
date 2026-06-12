@@ -118,3 +118,25 @@ jobs:
             --alarm-name-prefix "ee-toolbox-${ENV}" \
             --query 'MetricAlarms[*].{Name:AlarmName,State:StateValue,Reason:StateReason}' \
             --output table
+
+      - name: Subscribe SNS email (idempotent)
+        run: |
+          ENV="${{ github.event.inputs.environment || 'prd' }}"
+          TOPIC_ARN="arn:aws:sns:eu-central-1:207258148366:ee-toolbox-${ENV}-alarms"
+          ENDPOINT="smith-code@synapsis-analytics.com"
+          echo "Subscribing $ENDPOINT to $TOPIC_ARN ..."
+          # Check for existing confirmed subscription first
+          EXISTING=$(aws sns list-subscriptions-by-topic \
+            --topic-arn "$TOPIC_ARN" \
+            --query "Subscriptions[?Endpoint=='$ENDPOINT' && Protocol=='email'].SubscriptionArn" \
+            --output text)
+          if [ -n "$EXISTING" ] && [ "$EXISTING" != "None" ]; then
+            echo "Already subscribed: $EXISTING"
+          else
+            aws sns subscribe \
+              --topic-arn "$TOPIC_ARN" \
+              --protocol email \
+              --notification-endpoint "$ENDPOINT" \
+              --region "$AWS_REGION"
+            echo "Subscription request sent — pending email confirmation"
+          fi

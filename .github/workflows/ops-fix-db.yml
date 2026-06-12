@@ -1,0 +1,170 @@
+name: Ops — Fix DB Initializing (C12)
+
+# One-off workflow to repair production when /health returns
+# {"database":"initializing"} after an instance refresh or restart.
+#
+# Root cause: litestream restore fails silently (incomplete WAL in latest
+# generation), leaving no SQLite file at AGENT_STORE_PATH=/app/backend/data/
+# agent_store.db. The litestream replicate daemon is already running inside
+# the container but is waiting for the file to appear. Creating an empty
+# SQLite DB at that path is sufficient — litestream picks it up within seconds.
+#
+# Mechanism: SSM RunShellScript → docker exec into running container → Python
+# sqlite3 creates an empty DB. Safe to re-run (no-op if file already exists).
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options: [prd, dev]
+        default: prd
+      instance_id:
+        description: 'EC2 instance ID (blank = auto-discover from ASG)'
+        required: false
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: eu-central-1
+
+jobs:
+  fix-db:
+    name: Fix DB on ${{ github.event.inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve instance ID
+        id: instance
+        run: |
+          PROVIDED="${{ github.event.inputs.instance_id }}"
+          ENV="${{ github.event.inputs.environment }}"
+          if [ -n "$PROVIDED" ]; then
+            INSTANCE_ID="$PROVIDED"
+            echo "Using provided instance: $INSTANCE_ID"
+          else
+            echo "Auto-discovering instance from ASG ee-toolbox-${ENV} ..."
+            INSTANCE_ID=$(aws autoscaling describe-auto-scaling-groups \
+              --auto-scaling-group-names "ee-toolbox-${ENV}" \
+              --query "AutoScalingGroups[0].Instances[?LifecycleState=='InService'].InstanceId | [0]" \
+              --output text)
+            echo "Discovered instance: $INSTANCE_ID"
+          fi
+          if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" = "None" ]; then
+            echo "ERROR: No InService instance found in ASG ee-toolbox-${ENV}"
+            exit 1
+          fi
+          echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+
+      - name: Health check BEFORE fix
+        run: |
+          INSTANCE_ID="${{ steps.instance.outputs.instance_id }}"
+          echo "=== Health before fix ==="
+          CMD_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=["curl -s http://localhost:8099/health || echo CURL_FAILED"]' \
+            --query "Command.CommandId" --output text)
+          sleep 6
+          aws ssm get-command-invocation \
+            --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query 'StandardOutputContent' --output text || true
+
+      - name: Create DB file via docker exec
+        id: fix
+        run: |
+          INSTANCE_ID="${{ steps.instance.outputs.instance_id }}"
+
+          # Write the fix script to a file, then base64-encode it to avoid
+          # shell quoting hell when passing nested quotes to SSM parameters.
+          cat > /tmp/fix_db.py << 'PYEOF'
+          import os, sqlite3
+          db = "/app/backend/data/agent_store.db"
+          os.makedirs(os.path.dirname(db), exist_ok=True)
+          if os.path.exists(db):
+              print("DB already exists:", db)
+          else:
+              conn = sqlite3.connect(db)
+              conn.execute("CREATE TABLE IF NOT EXISTS _init (id INTEGER PRIMARY KEY)")
+              conn.commit()
+              conn.close()
+              print("Created fresh DB:", db)
+          # Quick verify
+          conn2 = sqlite3.connect(db)
+          conn2.execute("SELECT 1")
+          conn2.close()
+          print("Verify OK")
+          PYEOF
+
+          B64=$(base64 -w0 /tmp/fix_db.py)
+
+          # SSM commands: decode script, find container, docker exec
+          # Using a JSON file to avoid shell quoting issues entirely
+          python3 - << HEREDOC
+          import json, subprocess, sys
+
+          instance_id = "$INSTANCE_ID"
+          b64 = "$B64"
+
+          commands = [
+              f"echo {b64} | base64 -d > /tmp/fix_db.py",
+              "CONTAINER=$(docker ps --format '{{.Names}}' | grep ee-toolbox | head -1)",
+              "echo \"Container: $CONTAINER\"",
+              "[ -n \"$CONTAINER\" ] || { echo 'ERROR: no ee-toolbox container'; docker ps; exit 1; }",
+              "docker exec \"$CONTAINER\" python3 /tmp/fix_db.py",
+              "sleep 3",
+              "echo '=== Health after fix ==='; curl -s http://localhost:8099/health"
+          ]
+
+          payload = {
+              "InstanceIds": [instance_id],
+              "DocumentName": "AWS-RunShellScript",
+              "Parameters": {"commands": commands}
+          }
+
+          with open("/tmp/ssm_params.json", "w") as f:
+              json.dump(payload, f)
+          print("SSM payload written")
+          HEREDOC
+
+          CMD_ID=$(aws ssm send-command \
+            --cli-input-json file:///tmp/ssm_params.json \
+            --query "Command.CommandId" --output text)
+
+          echo "SSM command ID: $CMD_ID"
+          echo "cmd_id=$CMD_ID" >> $GITHUB_OUTPUT
+          echo "Waiting 20s for command to complete ..."
+          sleep 20
+
+      - name: Show fix output
+        run: |
+          INSTANCE_ID="${{ steps.instance.outputs.instance_id }}"
+          CMD_ID="${{ steps.fix.outputs.cmd_id }}"
+          echo "=== SSM command status ==="
+          aws ssm get-command-invocation \
+            --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query '{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}' \
+            --output table
+
+      - name: Wait for canary cycle then check alarms
+        run: |
+          echo "Waiting 60s for next canary invocation ..."
+          sleep 60
+          echo "=== CloudWatch alarms after DB fix ==="
+          ENV="${{ github.event.inputs.environment }}"
+          aws cloudwatch describe-alarms \
+            --alarm-name-prefix "ee-toolbox-${ENV}" \
+            --query 'MetricAlarms[*].{Name:AlarmName,State:StateValue,Updated:StateUpdatedTimestamp}' \
+            --output table
