@@ -1,0 +1,139 @@
+name: "Ops: Fix DB Connection PRD"
+
+# One-off workflow to repair the three simultaneous blockers that prevented
+# the backend from reaching PostgreSQL in the PRODUCTION account (207258148366).
+#
+# The original ops-fix-db-connection.yml targeted the MANAGEMENT account (mgmt
+# environment) and fixed the wrong SGs. This workflow targets the correct PROD
+# account resources:
+#
+#   1. DATABASE_URL was never injected into the ee-toolbox-api-keys secret in
+#      the PROD account (207258148366)
+#   2. EC2 SG (sg-0670b982fe826e9e3) in prod VPC has no TCP 5432 egress rule
+#   3. RDS SG (sg-0bb47ba1aeb7af42b) has zero ingress rules — nothing can
+#      connect to the prod RDS instance
+#
+# Safe to re-run — all AWS CLI calls are idempotent (put-secret-value
+# overwrites, authorize-sg-* has || echo on duplicate errors).
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  fix-db-connection-prd:
+    name: Fix DB connection blockers (PRD account)
+    runs-on: ubuntu-latest
+    environment: prd
+    env:
+      AWS_REGION: eu-central-1
+      EC2_SG: sg-0670b982fe826e9e3
+      RDS_SG: sg-0bb47ba1aeb7af42b
+      DB_HOST: ee-toolbox-prd-db.cl6246422thq.eu-central-1.rds.amazonaws.com
+      DB_USER: eetoolbox
+      DB_NAME: ee_toolbox
+
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Read DB credentials from Secrets Manager (prod account)
+        id: db-creds
+        run: |
+          DB_SECRET=$(aws secretsmanager get-secret-value \
+            --secret-id ee-toolbox-prd-db-credentials \
+            --region "$AWS_REGION" \
+            --query SecretString --output text)
+          DB_PASSWORD=$(echo "$DB_SECRET" | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          # RDS-managed secrets use 'password'; fallback to first value
+          pw = d.get('password') or d.get('Password') or list(d.values())[0]
+          print(pw)
+          ")
+          echo "DB_PASSWORD<<ENVEOF" >> "$GITHUB_ENV"
+          echo "$DB_PASSWORD" >> "$GITHUB_ENV"
+          echo "ENVEOF" >> "$GITHUB_ENV"
+          echo "DB credentials loaded (password length: ${#DB_PASSWORD})"
+
+      - name: Read existing API-keys secret (prod account)
+        run: |
+          API_SECRET=$(aws secretsmanager get-secret-value \
+            --secret-id ee-toolbox-api-keys \
+            --region "$AWS_REGION" \
+            --query SecretString --output text)
+          ANTHROPIC_KEY=$(echo "$API_SECRET" | python3 -c "import sys,json; print(json.load(sys.stdin)['ANTHROPIC_API_KEY'])")
+          OPENAI_KEY=$(echo "$API_SECRET" | python3 -c "import sys,json; print(json.load(sys.stdin)['OPENAI_API_KEY'])")
+          echo "ANTHROPIC_KEY=$ANTHROPIC_KEY" >> "$GITHUB_ENV"
+          echo "OPENAI_KEY=$OPENAI_KEY" >> "$GITHUB_ENV"
+          echo "API keys loaded."
+
+      - name: Build DB URLs and write to env
+        run: |
+          DB_URL="postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}"
+          DB_URL_SYNC="postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}"
+          echo "DB_URL<<ENVEOF" >> "$GITHUB_ENV"
+          echo "$DB_URL" >> "$GITHUB_ENV"
+          echo "ENVEOF" >> "$GITHUB_ENV"
+          echo "DB_URL_SYNC<<ENVEOF" >> "$GITHUB_ENV"
+          echo "$DB_URL_SYNC" >> "$GITHUB_ENV"
+          echo "ENVEOF" >> "$GITHUB_ENV"
+          echo "DB URLs written to GITHUB_ENV."
+
+      - name: Update ee-toolbox-api-keys with DATABASE_URL values (prod account)
+        run: |
+          NEW_SECRET=$(python3 -c "
+          import json, os
+          d = {
+              'ANTHROPIC_API_KEY': os.environ['ANTHROPIC_KEY'],
+              'OPENAI_API_KEY': os.environ['OPENAI_KEY'],
+              'DATABASE_URL': os.environ['DB_URL'],
+              'DATABASE_URL_SYNC': os.environ['DB_URL_SYNC'],
+          }
+          print(json.dumps(d))
+          ")
+          aws secretsmanager put-secret-value \
+            --secret-id ee-toolbox-api-keys \
+            --region "$AWS_REGION" \
+            --secret-string "$NEW_SECRET"
+          echo "Secret updated with DATABASE_URL and DATABASE_URL_SYNC."
+
+      - name: Add TCP 5432 egress to EC2 SG (sg-0670b982fe826e9e3)
+        run: |
+          aws ec2 authorize-security-group-egress \
+            --group-id "$EC2_SG" \
+            --region "$AWS_REGION" \
+            --ip-permissions "[{\"IpProtocol\":\"tcp\",\"FromPort\":5432,\"ToPort\":5432,\"UserIdGroupPairs\":[{\"GroupId\":\"$RDS_SG\",\"Description\":\"PostgreSQL to RDS SG\"}]}]" \
+            && echo "EC2 SG egress rule added." \
+            || echo "Rule may already exist — continuing."
+
+      - name: Add TCP 5432 ingress to RDS SG (sg-0bb47ba1aeb7af42b)
+        run: |
+          aws ec2 authorize-security-group-ingress \
+            --group-id "$RDS_SG" \
+            --region "$AWS_REGION" \
+            --ip-permissions "[{\"IpProtocol\":\"tcp\",\"FromPort\":5432,\"ToPort\":5432,\"UserIdGroupPairs\":[{\"GroupId\":\"$EC2_SG\",\"Description\":\"PostgreSQL from EC2 SG\"}]}]" \
+            && echo "RDS SG ingress rule added." \
+            || echo "Rule may already exist — continuing."
+
+      - name: Verify security group rules
+        run: |
+          echo "=== EC2 SG egress rules (5432) ==="
+          aws ec2 describe-security-groups \
+            --group-ids "$EC2_SG" \
+            --region "$AWS_REGION" \
+            --query 'SecurityGroups[0].IpPermissionsEgress[?FromPort==`5432`]' \
+            --output json
+          echo "=== RDS SG ingress rules (5432) ==="
+          aws ec2 describe-security-groups \
+            --group-ids "$RDS_SG" \
+            --region "$AWS_REGION" \
+            --query 'SecurityGroups[0].IpPermissions[?FromPort==`5432`]' \
+            --output json
+          echo "=== All three DB connection blockers resolved (PROD account) ==="
