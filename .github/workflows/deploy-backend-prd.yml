@@ -1,0 +1,152 @@
+name: Deploy Backend to PRD (B2)
+
+# ==============================================================================
+# Builds the backend Docker image, pushes it to the PROD ECR repo
+# (207258148366.dkr.ecr.eu-central-1.amazonaws.com/ee-toolbox-prd-backend),
+# updates the ee-toolbox-prd-app CloudFormation stack with the new image URI,
+# then starts an instance refresh on the ee-toolbox-prd ASG.
+#
+# This workflow targets the PRODUCTION account (207258148366) via the "prd"
+# GitHub environment, which holds AWS_DEPLOY_ROLE_ARN pointing to the prod
+# deploy role.
+#
+# Context: the existing deploy-backend.yml targets the management account
+# (ee-toolbox-mgmt ASG). This workflow targets the actual production instance.
+# ==============================================================================
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-backend-prd
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: prd
+    env:
+      AWS_REGION: eu-central-1
+      ECR_REPOSITORY: ee-toolbox-prd-backend
+      ASG_NAME: ee-toolbox-prd
+      STACK_NAME: ee-toolbox-prd-app
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:latest" \
+            .
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+          echo "IMAGE_URI=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_ENV"
+          echo "Pushed $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG and :latest"
+
+      - name: Get current stack parameters
+        run: |
+          # Retrieve existing parameters so we preserve VPC/subnet/cert config
+          PARAMS=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --region "$AWS_REGION" \
+            --query 'Stacks[0].Parameters' \
+            --output json)
+          echo "Current stack parameters:"
+          echo "$PARAMS" | python3 -c "import json,sys; [print(f'  {p[\"ParameterKey\"]}: {p[\"ParameterValue\"]}') for p in json.load(sys.stdin)]"
+
+      - name: Update CloudFormation stack with new image
+        run: |
+          # Update the stack using UsePreviousValue for all params except ImageUri
+          aws cloudformation update-stack \
+            --stack-name "$STACK_NAME" \
+            --use-previous-template \
+            --parameters \
+              "ParameterKey=Environment,UsePreviousValue=true" \
+              "ParameterKey=VpcId,UsePreviousValue=true" \
+              "ParameterKey=SubnetIds,UsePreviousValue=true" \
+              "ParameterKey=CertificateArn,UsePreviousValue=true" \
+              "ParameterKey=ImageUri,ParameterValue=$IMAGE_URI" \
+              "ParameterKey=EERetrievalS3,UsePreviousValue=true" \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+            --region "$AWS_REGION" \
+          || echo "No stack update needed (no-change set is not an error)"
+
+      - name: Wait for CloudFormation update to complete
+        run: |
+          echo "Waiting for stack update to complete..."
+          aws cloudformation wait stack-update-complete \
+            --stack-name "$STACK_NAME" \
+            --region "$AWS_REGION" \
+          && echo "Stack update complete." \
+          || echo "Stack update wait timed out or no update was made (may be no-change)."
+
+      - name: Start ASG instance refresh
+        run: |
+          REFRESH_ID=$(aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name "$ASG_NAME" \
+            --preferences '{"MinHealthyPercentage":0,"InstanceWarmup":2700}' \
+            --region "$AWS_REGION" \
+            --query 'InstanceRefreshId' --output text)
+          echo "Instance refresh started: $REFRESH_ID"
+          echo "REFRESH_ID=$REFRESH_ID" >> "$GITHUB_ENV"
+
+      - name: Wait for instance refresh
+        run: |
+          for i in $(seq 1 80); do
+            STATUS=$(aws autoscaling describe-instance-refreshes \
+              --auto-scaling-group-name "$ASG_NAME" \
+              --instance-refresh-ids "$REFRESH_ID" \
+              --region "$AWS_REGION" \
+              --query 'InstanceRefreshes[0].Status' --output text)
+            echo "[$i/80] Instance refresh status: $STATUS"
+            case "$STATUS" in
+              Successful)
+                echo "Instance refresh completed successfully."
+                exit 0
+                ;;
+              Failed|Cancelled)
+                echo "Instance refresh ended with status: $STATUS"
+                exit 1
+                ;;
+            esac
+            sleep 30
+          done
+          echo "Instance refresh still in progress after 40 minutes; not failing the job."
+          exit 0
+
+      - name: Verify API health
+        run: |
+          echo "Checking API health..."
+          for i in $(seq 1 10); do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 \
+              https://api-ee-toolbox.synapsis-analytics.com/health || echo "timeout")
+            echo "[$i/10] HTTP $CODE"
+            if [ "$CODE" = "200" ]; then
+              BODY=$(curl -s --max-time 15 https://api-ee-toolbox.synapsis-analytics.com/health)
+              echo "Health response: $BODY"
+              echo "API is healthy!"
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "API did not become healthy within 5 minutes post-refresh"
+          exit 1
