@@ -1,0 +1,93 @@
+name: "Ops: Fix ASG Grace Period (B2)"
+
+# One-off workflow to update the HealthCheckGracePeriod on the production
+# ASG (ee-toolbox-prd) from 600s to 1200s.
+#
+# The boot sequence (dnf install docker + docker pull + S3 artifact load +
+# embedding model download) takes 12-18 minutes on fresh AL2023 instances.
+# With a 600s grace period, ELB health check failures trigger instance
+# replacement before the container is ready, creating a crash-replace loop.
+# 1200s gives sufficient runway for the full entrypoint.sh to complete.
+#
+# Uses the same OIDC + mgmt environment pattern as all other ops workflows.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  fix-grace-period:
+    name: Update ASG health check grace period
+    runs-on: ubuntu-latest
+    environment: mgmt
+    env:
+      AWS_REGION: eu-central-1
+      STACK_NAME: ee-toolbox-prd-app
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get current stack parameters
+        id: get-params
+        run: |
+          PARAMS=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --region "$AWS_REGION" \
+            --query 'Stacks[0].Parameters' \
+            --output json)
+          echo "Current parameters:"
+          echo "$PARAMS"
+          # Extract each parameter value
+          VPC_ID=$(echo "$PARAMS" | python3 -c "import sys,json; p={x['ParameterKey']:x['ParameterValue'] for x in json.load(sys.stdin)}; print(p['VpcId'])")
+          SUBNET_IDS=$(echo "$PARAMS" | python3 -c "import sys,json; p={x['ParameterKey']:x['ParameterValue'] for x in json.load(sys.stdin)}; print(p['SubnetIds'])")
+          IMAGE_URI=$(echo "$PARAMS" | python3 -c "import sys,json; p={x['ParameterKey']:x['ParameterValue'] for x in json.load(sys.stdin)}; print(p['ImageUri'])")
+          CERT_ARN=$(echo "$PARAMS" | python3 -c "import sys,json; p={x['ParameterKey']:x['ParameterValue'] for x in json.load(sys.stdin)}; print(p['CertificateArn'])")
+          EE_S3=$(echo "$PARAMS" | python3 -c "import sys,json; p={x['ParameterKey']:x['ParameterValue'] for x in json.load(sys.stdin)}; print(p['EERetrievalS3'])")
+          echo "VPC_ID=$VPC_ID" >> "$GITHUB_ENV"
+          echo "SUBNET_IDS=$SUBNET_IDS" >> "$GITHUB_ENV"
+          echo "IMAGE_URI=$IMAGE_URI" >> "$GITHUB_ENV"
+          echo "CERT_ARN=$CERT_ARN" >> "$GITHUB_ENV"
+          echo "EE_S3=$EE_S3" >> "$GITHUB_ENV"
+          echo "Parameters extracted successfully."
+
+      - name: Deploy updated stack (HealthCheckGracePeriod=1200)
+        run: |
+          aws cloudformation deploy \
+            --stack-name "$STACK_NAME" \
+            --template-file infra/ee-toolbox-app.yaml \
+            --parameter-overrides \
+              Environment=prd \
+              VpcId="$VPC_ID" \
+              SubnetIds="$SUBNET_IDS" \
+              CertificateArn="$CERT_ARN" \
+              ImageUri="$IMAGE_URI" \
+              EERetrievalS3="$EE_S3" \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+            --region "$AWS_REGION" \
+            --no-fail-on-empty-changeset
+          echo "Stack updated successfully."
+
+      - name: Verify updated grace period
+        run: |
+          GRACE=$(aws autoscaling describe-auto-scaling-groups \
+            --auto-scaling-group-names ee-toolbox-prd \
+            --region "$AWS_REGION" \
+            --query 'AutoScalingGroups[0].HealthCheckGracePeriod' \
+            --output text)
+          echo "ASG HealthCheckGracePeriod: $GRACE seconds"
+          if [ "$GRACE" -ge 1200 ]; then
+            echo "Grace period updated to >= 1200 seconds."
+          else
+            echo "WARNING: Grace period is $GRACE, expected >= 1200"
+            exit 1
+          fi
