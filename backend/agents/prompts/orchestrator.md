@@ -59,11 +59,13 @@ Run every new challenge through this flow, in order:
    Where a short visual synthesis of success stories is appropriate, frame it as
    **enabling-environment intelligence**.
    When referencing specific tools in your output, always format the tool name as a clickable
-   Markdown link pointing to the catalog. Use the tool's UUID from corpus_search results:
-   `[Tool Name](/catalog?tool={uuid})` — for example `[Scaling Scan](/catalog?tool=3f8a1c2d-…)`.
-   If you do not have the tool's UUID, fall back to a keyword search link:
+   Markdown link pointing to the catalog. Use the tool's `id` field from corpus_search results
+   (a CGSpace handle like `10568-114572`):
+   `[Tool Name](/catalog?tool=10568-114572)`.
+   If you do not have the tool's id, fall back to a keyword search link:
    `[Tool Name](/catalog?q=Tool+Name)`.
-   Prefer the `?tool=` form whenever a UUID is available — it opens the tool detail panel directly.
+   Prefer the `?tool=` form whenever a corpus_search result id is available — it opens the
+   tool detail panel directly.
    This applies to all tool mentions in the pathway, drill-down, and final response.
 
 ## Report lifecycle — the persistent report draft
