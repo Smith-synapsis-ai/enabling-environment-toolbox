@@ -67,6 +67,7 @@ export default function AssistantPage() {
   const [draftError, setDraftError] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
   const [mobileView, setMobileView] = useState<'chat' | 'report'>('chat');
+  const [refineSeq, setRefineSeq] = useState(0);
 
   const sessionIdRef = useRef<string>(getAssistantSessionId() || newAssistantSessionId());
   const turnRef = useRef(0); // logical user turns sent this browser session
@@ -290,7 +291,7 @@ export default function AssistantPage() {
   }, [sendTurn]);
 
   const handleRefine = useCallback(() => {
-    inputRef.current?.focus();
+    setRefineSeq(s => s + 1);
   }, []);
 
   const handleNewSession = useCallback(() => {
@@ -408,6 +409,8 @@ export default function AssistantPage() {
                 onSend={sendTurn}
                 inputRef={inputRef}
                 onAttach={handleAttach}
+                prefill="Please refine the pathway by: "
+                prefillSeq={refineSeq}
               />
               <p className="text-[10px] text-white/30 mt-1 px-1">
                 Session {sessionIdRef.current.slice(0, 8)}… · {connectionState}

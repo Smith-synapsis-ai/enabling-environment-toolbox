@@ -10,6 +10,10 @@ interface ChatInputProps {
    *  shown.  The parent decides what to do with the FileList (e.g. prepend a
    *  filename notice to the next message, or upload to a server-side endpoint). */
   onAttach?: (files: FileList) => void;
+  /** When set, pre-fills the textarea with this text on the next prefillSeq change. */
+  prefill?: string;
+  /** Increment this to trigger a new prefill (allows same text to be re-triggered). */
+  prefillSeq?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -41,6 +45,8 @@ export default function ChatInput({
   onSend,
   inputRef,
   onAttach,
+  prefill,
+  prefillSeq,
 }: ChatInputProps) {
   const [text, setText] = useState('');
   const [listening, setListening] = useState(false);
@@ -54,6 +60,22 @@ export default function ChatInput({
       recognitionRef.current?.abort();
     };
   }, []);
+
+  // Pre-fill the textarea when prefillSeq changes (Refine button press).
+  useEffect(() => {
+    if (prefillSeq && prefill) {
+      setText(prefill);
+      // Position cursor at end after React re-renders the textarea
+      requestAnimationFrame(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          const len = inputRef.current.value.length;
+          inputRef.current.setSelectionRange(len, len);
+        }
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefillSeq]);
 
   // ── Send ──────────────────────────────────────────────────────────────────
 

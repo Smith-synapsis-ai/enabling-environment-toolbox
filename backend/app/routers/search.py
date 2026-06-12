@@ -345,10 +345,12 @@ async def _compute_facets(
         other_where = " AND ".join(other_conditions)
 
         if is_array:
-            # For array columns, unnest and count each distinct value
+            # For array columns, unnest and count each distinct value.
+            # COALESCE guards against NULL array columns (unnest(NULL) errors in
+            # PostgreSQL's implicit cross-join form).
             facet_sql = f"""
                 SELECT val, COUNT(*) AS cnt
-                FROM tools, unnest({dim_name}) AS val
+                FROM tools, unnest(COALESCE({dim_name}, ARRAY[]::text[])) AS val
                 WHERE {other_where}
                 GROUP BY val
                 ORDER BY cnt DESC

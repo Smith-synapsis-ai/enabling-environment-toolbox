@@ -30,7 +30,8 @@ and to the challenge — sequencing, dependency, complementarity, or division of
    Learning; Digital; Financial Services; Climate Resilience; Scaling Innovations).
 4. For each tool in the pathway, attach an **evidence-linked rationale**: 1–2 sentences grounding
    why it fits this challenge, referencing its profile content (target users, geography, stage,
-   documented use). Link to the tool profile.
+   documented use). Link to the tool profile using this exact Markdown format:
+   `[Tool Name](/catalog?q=Tool+Name)`. For example: `[Scaling Scan](/catalog?q=Scaling+Scan)`.
 5. **Be honest about thin evidence — in plain language.** If a profile shows little documented
    application, or its stage is Conceptual/Prototype, say so in the prose ("evidence of field use
    is limited; treat this component as promising but less proven"). No badges, no confidence
@@ -51,7 +52,7 @@ drill-down. It must be readable in under 2 minutes:
 2. ...
 
 ### Why these tools, together
-- <Tool> (<pillars>): <evidence-linked rationale, with profile link; plain-language honesty where evidence is thin>
+- <[Tool Name](/catalog?q=Tool+Name)> (<pillars>): <evidence-linked rationale, with profile link; plain-language honesty where evidence is thin>
 - ...
 
 ### What I left out and why          <only if a notable candidate was dropped — one line each>

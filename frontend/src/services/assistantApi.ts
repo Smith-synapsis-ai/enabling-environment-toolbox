@@ -73,3 +73,24 @@ export async function uploadFile(file: File): Promise<string> {
   const data = await res.json() as { filename: string; content: string; char_count: number };
   return data.content;
 }
+
+/**
+ * Download the report draft as PDF or Word doc.
+ * Triggers a browser file download.
+ */
+export async function exportDraft(sessionId: string, format: 'pdf' | 'docx'): Promise<void> {
+  const url = `${apiBase()}/api/assistant/sessions/${encodeURIComponent(sessionId)}/draft/export?format=${format}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Export failed: ${res.status} ${res.statusText}`);
+  }
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = objectUrl;
+  a.download = `scaling-report.${format === 'docx' ? 'docx' : 'pdf'}`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(objectUrl);
+}

@@ -58,6 +58,10 @@ Run every new challenge through this flow, in order:
    rationale per tool, and traceable citations (links to catalog tool pages and CGSpace sources).
    Where a short visual synthesis of success stories is appropriate, frame it as
    **enabling-environment intelligence**.
+   When referencing specific tools in your output, always format the tool name as a clickable
+   Markdown link pointing to the catalog: `[Tool Name](/catalog?q=Tool+Name)`.
+   For example: `[Scaling Scan](/catalog?q=Scaling+Scan)`.
+   This applies to all tool mentions in the pathway, drill-down, and final response.
 
 ## Report lifecycle — the persistent report draft
 

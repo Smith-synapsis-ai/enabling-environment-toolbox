@@ -1,6 +1,8 @@
-import { FileText, RefreshCw } from 'lucide-react';
+import { useState } from 'react';
+import { Download, FileText, RefreshCw } from 'lucide-react';
 import type { ReportDraftData } from '../../types/assistant';
 import Markdown from './Markdown';
+import { exportDraft, getAssistantSessionId } from '../../services/assistantApi';
 
 interface ReportPanelProps {
   draft: ReportDraftData | null;
@@ -18,6 +20,22 @@ const STATUS_STYLES: Record<string, string> = {
 
 /** Live report-draft panel: rendered markdown + revision badge + tool status. */
 export default function ReportPanel({ draft, loading, flash, error }: ReportPanelProps) {
+  const [exporting, setExporting] = useState<'pdf' | 'docx' | null>(null);
+
+  const handleExport = async (format: 'pdf' | 'docx') => {
+    const sessionId = getAssistantSessionId();
+    if (!sessionId || !draft) return;
+    setExporting(format);
+    try {
+      await exportDraft(sessionId, format);
+    } catch (err) {
+      console.error('Export failed:', err);
+      alert(`Download failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setExporting(null);
+    }
+  };
+
   return (
     <div
       className={`h-full flex flex-col rounded-2xl bg-white shadow-xl overflow-hidden transition-shadow duration-500 ${
@@ -37,6 +55,36 @@ export default function ReportPanel({ draft, loading, flash, error }: ReportPane
           >
             rev {draft.revision}
           </span>
+        )}
+        {draft && (
+          <div className="flex items-center gap-1 ml-auto">
+            <button
+              onClick={() => handleExport('pdf')}
+              disabled={!!exporting}
+              className="flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-white"
+              title="Download as PDF"
+            >
+              {exporting === 'pdf' ? (
+                <RefreshCw size={11} className="animate-spin" />
+              ) : (
+                <Download size={11} />
+              )}
+              PDF
+            </button>
+            <button
+              onClick={() => handleExport('docx')}
+              disabled={!!exporting}
+              className="flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-white"
+              title="Download as Word document"
+            >
+              {exporting === 'docx' ? (
+                <RefreshCw size={11} className="animate-spin" />
+              ) : (
+                <Download size={11} />
+              )}
+              Word
+            </button>
+          </div>
         )}
       </div>
 

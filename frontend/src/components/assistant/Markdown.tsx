@@ -30,11 +30,18 @@ export default function Markdown({ children, tone = 'dark' }: MarkdownProps) {
           li: ({ children }) => <li>{children}</li>,
           strong: ({ children }) => <strong className={`font-semibold ${heading}`}>{children}</strong>,
           em: ({ children }) => <em className={muted}>{children}</em>,
-          a: ({ href, children }) => (
-            <a href={href} target="_blank" rel="noopener noreferrer" className={`underline ${link}`}>
-              {children}
-            </a>
-          ),
+          a: ({ href, children }) => {
+            const isInternal = href && (href.startsWith('/') || href.startsWith(window.location.origin));
+            return isInternal ? (
+              <a href={href} className={`underline ${link}`}>
+                {children}
+              </a>
+            ) : (
+              <a href={href} target="_blank" rel="noopener noreferrer" className={`underline ${link}`}>
+                {children}
+              </a>
+            );
+          },
           code: ({ children }) => (
             <code className={`px-1 py-0.5 rounded text-xs font-mono ${code}`}>{children}</code>
           ),

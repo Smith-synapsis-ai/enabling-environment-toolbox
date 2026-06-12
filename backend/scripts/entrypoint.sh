@@ -71,6 +71,18 @@ m = SentenceTransformer('Qwen/Qwen3-Embedding-0.6B')
 print('Embedding model cached successfully')
 " && echo "Model ready." || echo "WARNING: model pre-cache failed — corpus_search may error on first use"
 
+# ── Run DB migrations ─────────────────────────────────────────────────────────
+# Alembic reads DATABASE_URL_SYNC from env (set by UserData / ECS task def).
+# This is idempotent — already-applied revisions are skipped.
+if [ -n "${DATABASE_URL_SYNC:-}" ]; then
+    echo "Running alembic upgrade head ..."
+    cd /app/backend
+    alembic upgrade head
+    echo "Migrations complete."
+else
+    echo "DATABASE_URL_SYNC not set — skipping alembic (dev/test mode)"
+fi
+
 # ── Start FastAPI ─────────────────────────────────────────────────────────────
 # PYTHONPATH=/app/backend:/app (set in Dockerfile) makes app.main resolve.
 echo "Starting uvicorn on :8099 ..."
