@@ -1,0 +1,139 @@
+name: Ops — Check UserData / Cloud-Init Progress
+
+# Read-only diagnostic: SSM into EC2 to read cloud-init log and docker status.
+# Use when a fresh instance is starting and you want to know where UserData is.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options: [prd, dev]
+        default: prd
+      instance_id:
+        description: 'EC2 instance ID (blank = auto-discover from ASG)'
+        required: false
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: eu-central-1
+
+jobs:
+  check-init:
+    name: Check cloud-init on ${{ github.event.inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve instance ID
+        id: instance
+        run: |
+          PROVIDED="${{ github.event.inputs.instance_id }}"
+          ENV="${{ github.event.inputs.environment }}"
+          if [ -n "$PROVIDED" ]; then
+            INSTANCE_ID="$PROVIDED"
+            echo "Using provided instance: $INSTANCE_ID"
+          else
+            echo "Auto-discovering instance from ASG ee-toolbox-${ENV} ..."
+            INSTANCE_ID=$(aws autoscaling describe-auto-scaling-groups \
+              --auto-scaling-group-names "ee-toolbox-${ENV}" \
+              --query "AutoScalingGroups[0].Instances[?LifecycleState=='InService'].InstanceId | [0]" \
+              --output text)
+            echo "Discovered: $INSTANCE_ID"
+          fi
+          if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" = "None" ]; then
+            echo "ERROR: No InService instance found"
+            exit 1
+          fi
+          echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+
+      - name: Read cloud-init log and docker status via SSM
+        id: check
+        run: |
+          INSTANCE_ID="${{ steps.instance.outputs.instance_id }}"
+
+          python3 -c "
+          import json, base64
+
+          py_script = (
+              'import subprocess\n'
+              'print(\"=== date ===\")\n'
+              'subprocess.run([\"date\",\"-u\"], check=False)\n'
+              'print(\"=== uptime ===\")\n'
+              'subprocess.run([\"uptime\"], check=False)\n'
+              'print(\"=== cloud-init status ===\")\n'
+              'subprocess.run([\"cloud-init\",\"status\",\"--wait\",\"--long\"], check=False, timeout=5)\n'
+              'print(\"=== cloud-init-output.log (last 100 lines) ===\")\n'
+              'r = subprocess.run([\"tail\",\"-n\",\"100\",\"/var/log/cloud-init-output.log\"], capture_output=True, text=True, check=False)\n'
+              'print(r.stdout[-6000:] if r.stdout else \"(empty or not found)\")\n'
+              'print(\"=== docker status ===\")\n'
+              'subprocess.run([\"systemctl\",\"is-active\",\"docker\"], check=False)\n'
+              'print(\"=== docker ps -a ===\")\n'
+              'r2 = subprocess.run([\"docker\",\"ps\",\"-a\",\"--format\",\"table {{.Names}}\\\\t{{.Status}}\\\\t{{.Image}}\"], capture_output=True, text=True, check=False)\n'
+              'print(r2.stdout or \"(no containers)\")\n'
+              'print(\"=== docker images ===\")\n'
+              'r3 = subprocess.run([\"docker\",\"images\",\"--format\",\"{{.Repository}}:{{.Tag}}\\\\t{{.Size}}\"], capture_output=True, text=True, check=False)\n'
+              'print(r3.stdout or \"(no images)\")\n'
+              'print(\"=== active docker pulls ===\")\n'
+              'r4 = subprocess.run([\"ps\",\"aux\"], capture_output=True, text=True, check=False)\n'
+              'for line in r4.stdout.splitlines():\n'
+              '    if \"docker\" in line.lower() or \"pull\" in line.lower():\n'
+              '        print(line)\n'
+              'print(\"=== health check ===\")\n'
+              'r5 = subprocess.run([\"curl\",\"-sf\",\"http://localhost:8099/health\"], capture_output=True, text=True, check=False)\n'
+              'print(r5.stdout or \"health-unreachable\")\n'
+          )
+          b64 = base64.b64encode(py_script.encode()).decode()
+          cmd = ('python3 -c ' + chr(39) +
+                 'import base64; exec(base64.b64decode(b' +
+                 chr(34) + b64 + chr(34) +
+                 ').decode())' + chr(39))
+          payload = {
+              'InstanceIds': ['$INSTANCE_ID'],
+              'DocumentName': 'AWS-RunShellScript',
+              'Parameters': {'commands': [
+                  'echo === SSM reached instance ===',
+                  cmd,
+              ]}
+          }
+          with open('/tmp/ssm_check.json', 'w') as f:
+              json.dump(payload, f, indent=2)
+          print('Payload written.')
+          "
+
+          CMD_ID=$(aws ssm send-command \
+            --cli-input-json file:///tmp/ssm_check.json \
+            --query "Command.CommandId" --output text)
+          echo "SSM command ID: $CMD_ID"
+          echo "cmd_id=$CMD_ID" >> $GITHUB_OUTPUT
+          echo "Waiting 30s for command to complete..."
+          sleep 30
+
+      - name: Show results
+        run: |
+          INSTANCE_ID="${{ steps.instance.outputs.instance_id }}"
+          CMD_ID="${{ steps.check.outputs.cmd_id }}"
+          STATUS=$(aws ssm get-command-invocation \
+            --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query 'Status' --output text)
+          echo "SSM status: $STATUS"
+          echo "=== STDOUT ==="
+          aws ssm get-command-invocation \
+            --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query 'StandardOutputContent' --output text
+          echo "=== STDERR ==="
+          aws ssm get-command-invocation \
+            --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
+            --query 'StandardErrorContent' --output text || true
