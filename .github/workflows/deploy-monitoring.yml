@@ -1,0 +1,120 @@
+name: Deploy Monitoring (C12)
+
+# Triggers:
+# - push to main/develop when monitoring files change (path filter)
+# - workflow_dispatch for manual deploys (used for the initial C12 deploy from
+#   the feature branch, avoiding a full app instance refresh via deploy.yml)
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'infra/ee-toolbox-monitoring.yaml'
+      - '.github/workflows/deploy-monitoring.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options: [prd, dev]
+        default: prd
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: eu-central-1
+
+jobs:
+  deploy-monitoring:
+    name: Deploy monitoring to ${{ github.event.inputs.environment || 'prd' }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'prd' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify AWS account
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          ENV="${{ github.event.inputs.environment || 'prd' }}"
+          echo "Account: $ACCOUNT_ID  Environment: $ENV"
+
+      - name: Look up ALB and TG dimension values
+        id: dims
+        run: |
+          ALB_ARN=$(aws elbv2 describe-load-balancers \
+            --names ee-toolbox-alb \
+            --query "LoadBalancers[0].LoadBalancerArn" --output text)
+          echo "ALB ARN: $ALB_ARN"
+          ALB_SUFFIX=$(python3 -c "import sys; arn='$ALB_ARN'; print(arn.split(':loadbalancer/')[1])")
+
+          TG_ARN=$(aws elbv2 describe-target-groups \
+            --load-balancer-arn "$ALB_ARN" \
+            --query "TargetGroups[0].TargetGroupArn" --output text)
+          echo "TG ARN: $TG_ARN"
+          TG_SUFFIX=$(python3 -c "import sys; arn='$TG_ARN'; print('targetgroup/' + arn.split(':targetgroup/')[1])")
+
+          echo "alb_suffix=$ALB_SUFFIX" >> $GITHUB_OUTPUT
+          echo "tg_suffix=$TG_SUFFIX" >> $GITHUB_OUTPUT
+          echo "ALB suffix: $ALB_SUFFIX"
+          echo "TG suffix: $TG_SUFFIX"
+
+      - name: Deploy monitoring stack
+        run: |
+          ENV="${{ github.event.inputs.environment || 'prd' }}"
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          LITESTREAM_BUCKET="ee-toolbox-sessions-${ACCOUNT_ID}"
+          ASG_NAME="ee-toolbox-${ENV}"
+          STACK_NAME="ee-toolbox-${ENV}-monitoring"
+
+          echo "Deploying $STACK_NAME..."
+          aws cloudformation deploy \
+            --template-file infra/ee-toolbox-monitoring.yaml \
+            --stack-name "$STACK_NAME" \
+            --parameter-overrides \
+              Environment="$ENV" \
+              ASGName="$ASG_NAME" \
+              LitestreamBucket="$LITESTREAM_BUCKET" \
+              ALBDimensionSuffix="${{ steps.dims.outputs.alb_suffix }}" \
+              TargetGroupDimensionSuffix="${{ steps.dims.outputs.tg_suffix }}" \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-fail-on-empty-changeset \
+            --region "$AWS_REGION"
+
+      - name: Show stack outputs
+        run: |
+          ENV="${{ github.event.inputs.environment || 'prd' }}"
+          STACK="ee-toolbox-${ENV}-monitoring"
+          echo "=== Stack outputs ==="
+          aws cloudformation describe-stacks --stack-name "$STACK" \
+            --query 'Stacks[0].Outputs' --output table
+
+      - name: Invoke canary to seed initial metrics
+        run: |
+          ENV="${{ github.event.inputs.environment || 'prd' }}"
+          FUNC="ee-toolbox-${ENV}-canary"
+          echo "Invoking canary: $FUNC"
+          aws lambda invoke \
+            --function-name "$FUNC" \
+            --region "$AWS_REGION" \
+            /tmp/canary-out.json
+          echo "Canary result:"
+          cat /tmp/canary-out.json
+
+      - name: Show CloudWatch alarms
+        run: |
+          ENV="${{ github.event.inputs.environment || 'prd' }}"
+          echo "=== CloudWatch Alarms ==="
+          aws cloudwatch describe-alarms \
+            --alarm-name-prefix "ee-toolbox-${ENV}" \
+            --query 'MetricAlarms[*].{Name:AlarmName,State:StateValue,Reason:StateReason}' \
+            --output table
