@@ -22,6 +22,14 @@ on:
       - main
       - develop
       - 'release/*'
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'infra/ee-toolbox-app.yaml'
+      - 'infra/ee-toolbox-frontend.yaml'
+      - '.github/workflows/deploy.yml'
+      - '.github/workflows/deploy-backend.yml'
+      - '.github/workflows/deploy-infra.yml'
   workflow_dispatch:
     inputs:
       environment:

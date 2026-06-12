@@ -1,0 +1,349 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  EE Toolbox – Monitoring & alerting stack (C12).
+  CloudWatch alarms: ALB 5xx, UnHealthyHostCount, EC2 CPU, HTTPS health check,
+  Litestream S3 staleness. Lambda canary runs every 5 minutes.
+  SNS topic for alarm notifications. Non-destructive — adds only new resources.
+
+Parameters:
+  Environment:
+    Type: String
+    Default: prd
+    AllowedValues: [dev, tst, prd]
+
+  AlarmEmail:
+    Type: String
+    Default: ""
+    Description: Email for alarm notifications (leave blank to skip)
+
+  ALBDimensionSuffix:
+    Type: String
+    Default: "app/ee-toolbox-alb/ff8bcd56db6085a4"
+    Description: >-
+      CloudWatch LoadBalancer dimension — the portion of the ALB ARN after
+      "loadbalancer/" (e.g. app/ee-toolbox-alb/<id>). Determined dynamically
+      in the deploy workflow; default is the prd value.
+
+  TargetGroupDimensionSuffix:
+    Type: String
+    Default: "targetgroup/ee-too-Targe-YFME6HPOWPE8/c21c40da512cae4f"
+    Description: >-
+      CloudWatch TargetGroup dimension — the portion of the TG ARN starting
+      at "targetgroup/" (e.g. targetgroup/<name>/<id>). Determined dynamically
+      in the deploy workflow; default is the prd value.
+
+  ASGName:
+    Type: String
+    Default: "ee-toolbox-prd"
+    Description: Auto Scaling Group name
+
+  LitestreamBucket:
+    Type: String
+    Default: "ee-toolbox-sessions-207258148366"
+    Description: S3 bucket where Litestream writes WAL files
+
+  HealthCheckUrl:
+    Type: String
+    Default: "https://api-ee-toolbox.synapsis-analytics.com/health"
+    Description: HTTPS URL for the health check canary
+
+Conditions:
+  HasAlarmEmail: !Not [!Equals [!Ref AlarmEmail, ""]]
+
+Resources:
+
+  # ---------------------------------------------------------------------------
+  # SNS Topic
+  # ---------------------------------------------------------------------------
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "ee-toolbox-${Environment}-alarms"
+      DisplayName: "EE Toolbox Alarms"
+      Tags:
+        - Key: Project
+          Value: ee-toolbox
+        - Key: Environment
+          Value: !Ref Environment
+
+  AlarmTopicEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasAlarmEmail
+    Properties:
+      TopicArn: !Ref AlarmTopic
+      Protocol: email
+      Endpoint: !Ref AlarmEmail
+
+  # ---------------------------------------------------------------------------
+  # Lambda canary log group (14-day retention, created before the function)
+  # ---------------------------------------------------------------------------
+  CanaryLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/ee-toolbox-${Environment}-canary"
+      RetentionInDays: 14
+
+  # ---------------------------------------------------------------------------
+  # IAM Role for Lambda canary
+  # ---------------------------------------------------------------------------
+  CanaryRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "ee-toolbox-${Environment}-canary-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CanaryPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: PutMetrics
+                Effect: Allow
+                Action: cloudwatch:PutMetricData
+                Resource: "*"
+              - Sid: LitestreamS3Read
+                Effect: Allow
+                Action:
+                  - s3:ListBucket
+                  - s3:GetObject
+                Resource:
+                  - !Sub "arn:aws:s3:::${LitestreamBucket}"
+                  - !Sub "arn:aws:s3:::${LitestreamBucket}/*"
+      Tags:
+        - Key: Project
+          Value: ee-toolbox
+
+  # ---------------------------------------------------------------------------
+  # Lambda canary function
+  # Checks: (1) HTTPS /health endpoint, (2) Litestream S3 staleness
+  # ---------------------------------------------------------------------------
+  CanaryFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: CanaryLogGroup
+    Properties:
+      FunctionName: !Sub "ee-toolbox-${Environment}-canary"
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt CanaryRole.Arn
+      Timeout: 30
+      MemorySize: 128
+      Environment:
+        Variables:
+          HEALTH_URL: !Ref HealthCheckUrl
+          LITESTREAM_BUCKET: !Ref LitestreamBucket
+          LITESTREAM_PREFIX: "agent_store/"
+          STALE_SECONDS: "900"
+          ENV_NAME: !Ref Environment
+      Code:
+        ZipFile: |
+          import boto3, json, os, time, urllib.request, urllib.error
+          CW = boto3.client('cloudwatch')
+          S3 = boto3.client('s3')
+          HEALTH_URL = os.environ['HEALTH_URL']
+          LITESTREAM_BUCKET = os.environ['LITESTREAM_BUCKET']
+          LITESTREAM_PREFIX = os.environ['LITESTREAM_PREFIX']
+          STALE_SECONDS = int(os.environ['STALE_SECONDS'])
+          ENV_NAME = os.environ['ENV_NAME']
+          NAMESPACE = 'EEToolbox'
+          DIMS = [{'Name': 'Environment', 'Value': ENV_NAME}]
+          def put(metric, value):
+              CW.put_metric_data(Namespace=NAMESPACE, MetricData=[{
+                  'MetricName': metric, 'Value': float(value),
+                  'Unit': 'Count', 'Dimensions': DIMS}])
+          def check_health():
+              try:
+                  req = urllib.request.Request(HEALTH_URL,
+                      headers={'User-Agent': 'EEToolbox-CW-Canary/1.0'})
+                  with urllib.request.urlopen(req, timeout=15) as r:
+                      body = json.loads(r.read())
+                      ok = r.status == 200 and body.get('database') == 'connected'
+                      print(f'Health: status={r.status} body={body} ok={ok}')
+                      return ok
+              except Exception as exc:
+                  print(f'Health check failed: {exc}')
+                  return False
+          def check_litestream():
+              try:
+                  pager = S3.get_paginator('list_objects_v2')
+                  latest = None
+                  for page in pager.paginate(Bucket=LITESTREAM_BUCKET,
+                          Prefix=LITESTREAM_PREFIX):
+                      for obj in page.get('Contents', []):
+                          if latest is None or obj['LastModified'] > latest:
+                              latest = obj['LastModified']
+                  if latest is None:
+                      print('Litestream: no objects in S3')
+                      return False
+                  age = time.time() - latest.timestamp()
+                  ok = age < STALE_SECONDS
+                  print(f'Litestream: last={latest} age={age:.0f}s threshold={STALE_SECONDS}s ok={ok}')
+                  return ok
+              except Exception as exc:
+                  print(f'Litestream check failed: {exc}')
+                  return False
+          def handler(event, context):
+              health_ok = check_health()
+              litestream_ok = check_litestream()
+              put('HealthCheckStatus', 1 if health_ok else 0)
+              put('LitestreamHealth', 1 if litestream_ok else 0)
+              result = {'health_ok': health_ok, 'litestream_ok': litestream_ok}
+              print(f'Canary result: {result}')
+              return result
+      Tags:
+        - Key: Project
+          Value: ee-toolbox
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ---------------------------------------------------------------------------
+  # EventBridge: invoke canary every 5 minutes
+  # ---------------------------------------------------------------------------
+  CanaryScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "ee-toolbox-${Environment}-canary-schedule"
+      Description: "EE Toolbox canary Lambda — every 5 minutes"
+      ScheduleExpression: "rate(5 minutes)"
+      State: ENABLED
+      Targets:
+        - Id: CanaryTarget
+          Arn: !GetAtt CanaryFunction.Arn
+
+  CanarySchedulePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt CanaryFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt CanaryScheduleRule.Arn
+
+  # ---------------------------------------------------------------------------
+  # CloudWatch Alarms
+  # ---------------------------------------------------------------------------
+
+  ALB5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "ee-toolbox-${Environment}-alb-5xx"
+      AlarmDescription: "ALB 5xx errors > 10 in 5 min — backend returning server errors"
+      Namespace: AWS/ApplicationELB
+      MetricName: HTTPCode_ELB_5XX_Count
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !Ref ALBDimensionSuffix
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+      OKActions:
+        - !Ref AlarmTopic
+
+  ALBUnhealthyHostsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "ee-toolbox-${Environment}-alb-unhealthy-hosts"
+      AlarmDescription: "ALB UnHealthyHostCount >= 1 for 2 min — backend failing health checks"
+      Namespace: AWS/ApplicationELB
+      MetricName: UnHealthyHostCount
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !Ref ALBDimensionSuffix
+        - Name: TargetGroup
+          Value: !Ref TargetGroupDimensionSuffix
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+      OKActions:
+        - !Ref AlarmTopic
+
+  EC2CPUAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "ee-toolbox-${Environment}-ec2-cpu-high"
+      AlarmDescription: "ASG average CPU > 85% for 10 min — agent load exceeding auto-scale capacity"
+      Namespace: AWS/EC2
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref ASGName
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 85
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+      OKActions:
+        - !Ref AlarmTopic
+
+  HealthCheckAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "ee-toolbox-${Environment}-health-check-failing"
+      AlarmDescription: "HTTPS /health endpoint unhealthy for >= 10 min (Lambda canary)"
+      Namespace: EEToolbox
+      MetricName: HealthCheckStatus
+      Dimensions:
+        - Name: Environment
+          Value: !Ref Environment
+      Statistic: Minimum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions:
+        - !Ref AlarmTopic
+      OKActions:
+        - !Ref AlarmTopic
+
+  LitestreamAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "ee-toolbox-${Environment}-litestream-stale"
+      AlarmDescription: "Litestream has not written to S3 in > 15 min — replication stopped"
+      Namespace: EEToolbox
+      MetricName: LitestreamHealth
+      Dimensions:
+        - Name: Environment
+          Value: !Ref Environment
+      Statistic: Minimum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions:
+        - !Ref AlarmTopic
+      OKActions:
+        - !Ref AlarmTopic
+
+Outputs:
+  SNSTopicArn:
+    Description: SNS topic ARN for alarm notifications
+    Value: !Ref AlarmTopic
+    Export:
+      Name: !Sub "ee-toolbox-${Environment}-AlarmTopicArn"
+
+  CanaryFunctionName:
+    Description: Lambda canary function name (invoke manually to test)
+    Value: !Ref CanaryFunction
+    Export:
+      Name: !Sub "ee-toolbox-${Environment}-CanaryFunctionName"
