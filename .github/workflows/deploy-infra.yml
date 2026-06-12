@@ -44,12 +44,19 @@ jobs:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Update API keys in Secrets Manager
+      - name: Update API keys secret (preserve DATABASE_URL)
         run: |
+          DB_SECRET=$(aws secretsmanager get-secret-value \
+            --secret-id ee-toolbox-mgmt-db-credentials \
+            --region "$AWS_REGION" \
+            --query SecretString --output text)
+          DB_PASSWORD=$(echo "$DB_SECRET" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('password') or d.get('Password') or list(d.values())[0])")
+          DB_URL="postgresql+asyncpg://eetoolbox:${DB_PASSWORD}@ee-toolbox-prd-db.cl6246422thq.eu-central-1.rds.amazonaws.com:5432/ee_toolbox"
+          DB_URL_SYNC="postgresql://eetoolbox:${DB_PASSWORD}@ee-toolbox-prd-db.cl6246422thq.eu-central-1.rds.amazonaws.com:5432/ee_toolbox"
           aws secretsmanager put-secret-value \
             --secret-id ee-toolbox-api-keys \
-            --secret-string '{"ANTHROPIC_API_KEY":"${{ secrets.ANTHROPIC_API_KEY }}","OPENAI_API_KEY":"${{ secrets.OPENAI_API_KEY }}"}' \
-            --region "$AWS_REGION"
+            --region "$AWS_REGION" \
+            --secret-string "{\"ANTHROPIC_API_KEY\":\"${{ secrets.ANTHROPIC_API_KEY }}\",\"OPENAI_API_KEY\":\"${{ secrets.OPENAI_API_KEY }}\",\"DATABASE_URL\":\"${DB_URL}\",\"DATABASE_URL_SYNC\":\"${DB_URL_SYNC}\"}"
 
       - name: Deploy application stack (ee-toolbox-app)
         run: |

@@ -18,6 +18,8 @@ print(client.get_secret_value(SecretId='$SECRET_NAME')['SecretString'])
 ")
 export ANTHROPIC_API_KEY=$(echo "$SECRET_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['ANTHROPIC_API_KEY'])")
 export OPENAI_API_KEY=$(echo "$SECRET_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['OPENAI_API_KEY'])")
+export DATABASE_URL=$(echo "$SECRET_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('DATABASE_URL',''))")
+export DATABASE_URL_SYNC=$(echo "$SECRET_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('DATABASE_URL_SYNC',''))")
 unset SECRET_JSON
 echo "API keys loaded."
 
