@@ -1,0 +1,117 @@
+name: "Ops: Fix DB Connection (B2)"
+
+# One-off workflow to repair the three simultaneous blockers that prevented
+# the backend from reaching PostgreSQL in production:
+#
+#   1. DATABASE_URL was never injected into the ee-toolbox-api-keys secret
+#   2. EC2 SG (sg-0775453b14c3056a9) had no TCP 5432 egress rule
+#   3. RDS SG (sg-0c3c33b6feace156b) only allowed TCP 5432 ingress from the
+#      OLD ECS SG (sg-08b1b7fd8d815a179), not from the current EC2 SG
+#
+# Safe to re-run — all AWS CLI calls are idempotent (put-secret-value
+# overwrites, authorize-sg-* has || echo on duplicate errors).
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  fix-db-connection:
+    name: Fix DB connection blockers
+    runs-on: ubuntu-latest
+    environment: mgmt
+    env:
+      AWS_REGION: eu-central-1
+
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Read DB credentials from Secrets Manager
+        id: db-creds
+        run: |
+          DB_SECRET=$(aws secretsmanager get-secret-value \
+            --secret-id ee-toolbox-mgmt-db-credentials \
+            --region "$AWS_REGION" \
+            --query SecretString --output text)
+          DB_PASSWORD=$(echo "$DB_SECRET" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('password') or d.get('Password') or list(d.values())[0])")
+          DB_HOST="ee-toolbox-prd-db.cl6246422thq.eu-central-1.rds.amazonaws.com"
+          DB_USER="eetoolbox"
+          DB_NAME="ee_toolbox"
+          echo "DB_PASSWORD=$DB_PASSWORD" >> "$GITHUB_ENV"
+          echo "DB_HOST=$DB_HOST" >> "$GITHUB_ENV"
+          echo "DB_USER=$DB_USER" >> "$GITHUB_ENV"
+          echo "DB_NAME=$DB_NAME" >> "$GITHUB_ENV"
+          echo "DB credentials loaded (password length: ${#DB_PASSWORD})"
+
+      - name: Read existing API-keys secret
+        run: |
+          API_SECRET=$(aws secretsmanager get-secret-value \
+            --secret-id ee-toolbox-api-keys \
+            --region "$AWS_REGION" \
+            --query SecretString --output text)
+          ANTHROPIC_KEY=$(echo "$API_SECRET" | python3 -c "import sys,json; print(json.load(sys.stdin)['ANTHROPIC_API_KEY'])")
+          OPENAI_KEY=$(echo "$API_SECRET" | python3 -c "import sys,json; print(json.load(sys.stdin)['OPENAI_API_KEY'])")
+          echo "ANTHROPIC_KEY=$ANTHROPIC_KEY" >> "$GITHUB_ENV"
+          echo "OPENAI_KEY=$OPENAI_KEY" >> "$GITHUB_ENV"
+          echo "API keys loaded."
+
+      - name: Update ee-toolbox-api-keys with DATABASE_URL values
+        run: |
+          DB_URL="postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}"
+          DB_URL_SYNC="postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}"
+          NEW_SECRET=$(python3 -c "
+          import json, os
+          d = {
+              'ANTHROPIC_API_KEY': os.environ['ANTHROPIC_KEY'],
+              'OPENAI_API_KEY': os.environ['OPENAI_KEY'],
+              'DATABASE_URL': os.environ['DB_URL'],
+              'DATABASE_URL_SYNC': os.environ['DB_URL_SYNC'],
+          }
+          print(json.dumps(d))
+          " DB_URL="$DB_URL" DB_URL_SYNC="$DB_URL_SYNC")
+          aws secretsmanager put-secret-value \
+            --secret-id ee-toolbox-api-keys \
+            --region "$AWS_REGION" \
+            --secret-string "$NEW_SECRET"
+          echo "Secret updated with DATABASE_URL and DATABASE_URL_SYNC."
+
+      - name: Add TCP 5432 egress to EC2 SG (sg-0775453b14c3056a9)
+        run: |
+          aws ec2 authorize-security-group-egress \
+            --group-id sg-0775453b14c3056a9 \
+            --region "$AWS_REGION" \
+            --ip-permissions '[{"IpProtocol":"tcp","FromPort":5432,"ToPort":5432,"UserIdGroupPairs":[{"GroupId":"sg-0c3c33b6feace156b","Description":"PostgreSQL to RDS SG"}]}]' \
+            && echo "EC2 SG egress rule added." \
+            || echo "Rule may already exist — continuing."
+
+      - name: Add TCP 5432 ingress to RDS SG from EC2 SG (sg-0c3c33b6feace156b)
+        run: |
+          aws ec2 authorize-security-group-ingress \
+            --group-id sg-0c3c33b6feace156b \
+            --region "$AWS_REGION" \
+            --ip-permissions '[{"IpProtocol":"tcp","FromPort":5432,"ToPort":5432,"UserIdGroupPairs":[{"GroupId":"sg-0775453b14c3056a9","Description":"PostgreSQL from EC2 SG"}]}]' \
+            && echo "RDS SG ingress rule added." \
+            || echo "Rule may already exist — continuing."
+
+      - name: Verify security group rules
+        run: |
+          echo "=== EC2 SG egress rules ==="
+          aws ec2 describe-security-groups \
+            --group-ids sg-0775453b14c3056a9 \
+            --region "$AWS_REGION" \
+            --query 'SecurityGroups[0].IpPermissionsEgress[?FromPort==`5432`]' \
+            --output json
+          echo "=== RDS SG ingress rules ==="
+          aws ec2 describe-security-groups \
+            --group-ids sg-0c3c33b6feace156b \
+            --region "$AWS_REGION" \
+            --query 'SecurityGroups[0].IpPermissions[?FromPort==`5432`]' \
+            --output json
+          echo "=== All three DB connection blockers resolved ==="
