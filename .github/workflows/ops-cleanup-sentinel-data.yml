@@ -85,29 +85,35 @@ jobs:
           if [ "$APPLY" = "true" ]; then FLAG="--apply"; fi
           echo "apply=$APPLY -> flag='$FLAG'"
 
-          # The committed script is baked into the running image at
-          # /app/backend/scripts/cleanup_sentinel_data.py. We also ship the
-          # host copy into the container (docker cp) as a belt-and-braces
-          # fallback in case the running image predates the commit. All output
-          # (stdout+stderr) is captured so the dashboard before/after counts and
-          # the exact targeted rows appear in the workflow log.
-          SCRIPT_B64=$(base64 < backend/scripts/cleanup_sentinel_data.py | tr -d '\n')
+          # The container exports DATABASE_URL at runtime (entrypoint.sh), so a
+          # fresh `docker exec` shell does NOT inherit it and would fall back to
+          # the dev localhost DSN. We read DATABASE_URL straight from the same
+          # ee-toolbox-api-keys secret the container reads and pass it into the
+          # exec explicitly so the script talks to the real durable Postgres.
+          DATABASE_URL=$(aws secretsmanager get-secret-value \
+            --secret-id ee-toolbox-api-keys --region "$AWS_REGION" \
+            --query 'SecretString' --output text \
+          | python3 -c "import sys,json; print(json.load(sys.stdin).get('DATABASE_URL',''))")
+          if [ -z "$DATABASE_URL" ]; then
+            echo "ERROR: DATABASE_URL not present in ee-toolbox-api-keys secret." >&2
+            exit 1
+          fi
+          echo "DATABASE_URL host: $(echo "$DATABASE_URL" | python3 -c "import sys; u=sys.stdin.read().strip(); print(u.split('@')[1].split('/')[0] if '@' in u else 'parse-error')")"
 
-          python3 - "$INSTANCE_ID" "$FLAG" "$SCRIPT_B64" <<'PYEOF'
+          # The committed script is baked into the running image at
+          # /app/backend/scripts/cleanup_sentinel_data.py. All output
+          # (stdout+stderr) is captured so the before/after counts and the exact
+          # targeted rows appear in the workflow log.
+          python3 - "$INSTANCE_ID" "$FLAG" "$DATABASE_URL" <<'PYEOF'
           import sys, json
-          instance_id, flag, script_b64 = sys.argv[1], sys.argv[2], sys.argv[3]
+          instance_id, flag, db_url = sys.argv[1], sys.argv[2], sys.argv[3]
           container = "ee-toolbox-backend"
           inner = (
               "echo '=== SSM reached instance ==='; "
               "echo '--- containers ---'; docker ps --format '{{.Names}} {{.Status}}'; "
-              # Ship host copy in as a fallback path (won't fail the run if cp errors).
-              f"echo '{script_b64}' | base64 -d > /tmp/cleanup_sentinel_data.py; "
-              f"docker cp /tmp/cleanup_sentinel_data.py {container}:/tmp/cleanup_sentinel_data.py 2>&1 || echo 'docker cp failed (will try in-image path)'; "
               "echo '--- running cleanup script (stdout+stderr) ---'; "
-              # Prefer the in-image path; fall back to the cp'd /tmp copy.
-              f"docker exec -e PYTHONPATH=/app/backend:/app {container} sh -lc "
-              f"'python3 /app/backend/scripts/cleanup_sentinel_data.py {flag} 2>&1 || "
-              f"python3 /tmp/cleanup_sentinel_data.py {flag} 2>&1'; "
+              f"docker exec -e PYTHONPATH=/app/backend:/app -e DATABASE_URL='{db_url}' "
+              f"{container} python3 /app/backend/scripts/cleanup_sentinel_data.py {flag} 2>&1; "
               "rc=$?; echo \"--- cleanup exit rc=$rc ---\"; exit $rc"
           )
           payload = {
