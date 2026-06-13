@@ -394,7 +394,11 @@ export default function AssistantPage() {
 
       {/* Degraded-state banner */}
       {degraded && (
-        <div className="shrink-0 bg-amber-500/20 border-b border-amber-400/40 px-4 py-2">
+        <div
+          className="shrink-0 bg-amber-500/20 border-b border-amber-400/40 px-4 py-2"
+          role="status"
+          aria-live="polite"
+        >
           <div className="max-w-7xl mx-auto flex items-center gap-2">
             <WifiOff size={14} className="text-amber-300 shrink-0" aria-hidden="true" />
             <p className="text-xs text-amber-100">{degraded}</p>

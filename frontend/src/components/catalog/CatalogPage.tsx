@@ -57,7 +57,7 @@ export default function CatalogPage({ onToolViewed }: CatalogPageProps) {
         {/* Page header */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Search by Catalog</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-gray-600 mt-1">
             Browse and filter the complete collection of enabling environment tools.
           </p>
         </div>

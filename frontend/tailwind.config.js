@@ -11,6 +11,10 @@ export default {
           'dark': '#033529',
           'green': '#2D5A3D',
           'accent': '#4CAF50',
+          // Darker accent for green TEXT/LINKS on light backgrounds — #4CAF50
+          // only reaches ~2.5:1 on #F5F5F5, below WCAG AA's 4.5:1 for text.
+          // #1B7E3C is ~5.3:1 on light while staying visually "CGIAR green".
+          'accent-dark': '#1B7E3C',
           'light': '#F5F5F5',
         },
         's4i': {

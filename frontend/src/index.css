@@ -95,9 +95,22 @@ body {
   margin: 0;
 }
 
-/* Focus ring reset — visible focus for keyboard users */
+/* Focus ring reset — clearer, higher-contrast visible focus for keyboard users
+   (WCAG 2.1 AA — 2.4.7 Focus Visible). Stronger ring + offset than before so
+   the focused control stands out against both light and dark backgrounds. */
 *:focus-visible {
-  @apply outline-none ring-2 ring-cgiar-accent/50 ring-offset-1;
+  @apply outline-none ring-2 ring-cgiar-accent ring-offset-2;
+  outline: 2px solid transparent; /* high-contrast / forced-colors fallback */
+  outline-offset: 2px;
+}
+
+/* In Windows High Contrast / forced-colors mode, ring shadows are dropped;
+   fall back to a real outline so focus stays visible. */
+@media (forced-colors: active) {
+  *:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
 }
 
 /* Respect prefers-reduced-motion */

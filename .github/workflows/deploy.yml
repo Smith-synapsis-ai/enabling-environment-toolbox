@@ -22,9 +22,23 @@ on:
       - main
       - develop
       - 'release/*'
+    # ── Path split (Part 0b — deploy stability) ───────────────────────────────
+    # This workflow runs the FULL CloudFormation + Docker + ASG-instance-refresh
+    # pipeline. An instance refresh wipes the ephemeral SQLite assistant/analytics
+    # store, so it must NOT run for frontend-only changes.
+    #
+    # The frontend is hosted on AWS Amplify (app d15pb16eb2gi8i, mgmt account),
+    # which is GitHub-connected and AUTO-BUILDS from amplify.yml on every push to
+    # main via its own webhook — it needs no GitHub Actions trigger. So
+    # 'frontend/**' is intentionally omitted here: a frontend-only push deploys
+    # via Amplify only and never cycles the backend ASG.
+    #
+    # 'infra/ee-toolbox-frontend.yaml' is retained because it provisions the
+    # Amplify/CloudFront stack (true frontend infra, not app code) — but note that
+    # change alone won't refresh the backend in practice. Backend app code lives
+    # under 'backend/**' and deploys via deploy-backend.yml (mgmt ASG).
     paths:
       - 'backend/**'
-      - 'frontend/**'
       - 'infra/ee-toolbox-app.yaml'
       - 'infra/ee-toolbox-frontend.yaml'
       - '.github/workflows/deploy-backend.yml'

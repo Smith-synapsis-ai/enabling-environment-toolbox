@@ -37,11 +37,18 @@ export default function ReportPanel({ draft, loading, flash, error }: ReportPane
   };
 
   return (
-    <div
+    <section
       className={`h-full flex flex-col rounded-2xl bg-white shadow-xl overflow-hidden transition-shadow duration-500 ${
         flash ? 'ring-4 ring-cgiar-accent shadow-cgiar-accent/40' : 'ring-1 ring-black/5'
       }`}
+      aria-label="Report draft"
     >
+      {/* Visually-hidden polite live region: announces each report-draft update
+          (revision change) to screen-reader users without altering the layout. */}
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {draft ? `Report draft updated to revision ${draft.revision}.` : ''}
+      </p>
+
       {/* Panel header */}
       <div className="flex items-center gap-2 px-4 py-3 bg-cgiar-dark text-white shrink-0">
         <FileText size={16} className="text-cgiar-accent" aria-hidden="true" />
@@ -97,7 +104,7 @@ export default function ReportPanel({ draft, loading, flash, error }: ReportPane
         )}
 
         {!draft && !error && (
-          <p className="text-sm text-gray-400 italic mt-4 text-center">
+          <p className="text-sm text-gray-500 italic mt-4 text-center">
             No report draft yet — describe your scaling challenge to start one.
           </p>
         )}
@@ -146,6 +153,6 @@ export default function ReportPanel({ draft, loading, flash, error }: ReportPane
           </>
         )}
       </div>
-    </div>
+    </section>
   );
 }

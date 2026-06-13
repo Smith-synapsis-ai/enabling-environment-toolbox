@@ -96,7 +96,7 @@ export default function Header() {
                 to="/catalog"
                 className={`ml-2 px-4 py-1.5 rounded-full border text-sm font-medium transition-all ${
                   isActive('/catalog')
-                    ? 'bg-s4i-purple border-s4i-purple text-white'
+                    ? 'bg-s4i-purple-deep border-s4i-purple-deep text-white'
                     : 'border-white/40 text-white/90 hover:border-white hover:bg-white/10'
                 }`}
                 {...(isActive('/catalog') ? { 'aria-current': 'page' as const } : {})}

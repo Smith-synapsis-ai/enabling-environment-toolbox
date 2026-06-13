@@ -25,12 +25,22 @@ export default function StepProgress({ flags, busy }: StepProgressProps) {
   const firstIncomplete = STEPS.findIndex(s => !flags[s.key]);
 
   return (
-    <div className="flex items-center gap-0 overflow-x-auto py-1" aria-label="Pathway progress">
+    <ol
+      className="flex items-center gap-0 overflow-x-auto py-1 list-none m-0 p-0"
+      aria-label="Pathway progress"
+    >
       {STEPS.map((step, i) => {
         const done = flags[step.key];
         const active = busy && i === firstIncomplete;
+        // Status word announced to screen readers (visually hidden) so each step
+        // conveys completed / in-progress / not-started state, not just its label.
+        const statusWord = done ? 'completed' : active ? 'in progress' : 'not started';
         return (
-          <div key={step.key} className="flex items-center shrink-0">
+          <li
+            key={step.key}
+            className="flex items-center shrink-0"
+            aria-current={active ? 'step' : undefined}
+          >
             {i > 0 && (
               <div
                 className={`h-px w-4 sm:w-8 ${done ? 'bg-cgiar-accent/70' : 'bg-white/20'}`}
@@ -54,10 +64,11 @@ export default function StepProgress({ flags, busy }: StepProgressProps) {
                 <span className="w-[11px] text-center" aria-hidden="true">{i + 1}</span>
               )}
               <span>{step.label}</span>
+              <span className="sr-only">: {statusWord}</span>
             </div>
-          </div>
+          </li>
         );
       })}
-    </div>
+    </ol>
   );
 }

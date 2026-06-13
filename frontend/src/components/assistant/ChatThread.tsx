@@ -15,6 +15,7 @@ interface ChatThreadProps {
 /** The main conversation column: bubbles, subagent panes, tool chips, checkpoints. */
 export default function ChatThread({ items, busy, onApprove, onRefine }: ChatThreadProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const approveRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -24,8 +25,34 @@ export default function ChatThread({ items, busy, onApprove, onRefine }: ChatThr
   // only when no turn is currently running.
   const lastResultId = [...items].reverse().find(i => i.kind === 'result')?.id;
 
+  // ── Accessibility: focus management on the acceptance checkpoint ──────────
+  // When a checkpoint becomes actionable (turn finished + Approve/Refine shown),
+  // move keyboard/screen-reader focus to the Approve button so the user is taken
+  // to the decision they must make instead of having to hunt for it.
+  const showCheckpointActions = !!lastResultId && !busy;
+  useEffect(() => {
+    if (showCheckpointActions) {
+      approveRef.current?.focus();
+    }
+  }, [showCheckpointActions, lastResultId]);
+
   return (
-    <div className="flex-1 overflow-y-auto px-1 py-3 space-y-1">
+    // role="log" + aria-live="polite" announces each streamed assistant/subagent
+    // message and tool update to screen readers as it is appended. aria-busy is
+    // toggled so assistive tech knows a turn is in progress.
+    <div
+      className="flex-1 overflow-y-auto px-1 py-3 space-y-1"
+      role="log"
+      aria-label="Assistant conversation"
+      aria-live="polite"
+      aria-relevant="additions text"
+      aria-atomic="false"
+      aria-busy={busy}
+    >
+      {/* Visually-hidden status region for the streaming state itself. */}
+      <p className="sr-only" role="status">
+        {busy ? 'The assistant is working on your challenge.' : ''}
+      </p>
       {items.length === 0 && (
         <div className="text-center text-white/60 text-sm mt-10 px-6">
           <p className="text-white/90 text-base font-medium mb-2">
@@ -70,9 +97,14 @@ export default function ChatThread({ items, busy, onApprove, onRefine }: ChatThr
 
           case 'result': {
             const showActions = item.id === lastResultId && !busy;
+            const checkpointLabel = `Acceptance checkpoint, turn ${item.turn}`;
             return (
               <div key={item.id} className="my-3">
-                <div className="rounded-2xl border border-cgiar-accent/40 bg-cgiar-green/30 px-4 py-3">
+                <div
+                  className="rounded-2xl border border-cgiar-accent/40 bg-cgiar-green/30 px-4 py-3"
+                  role="group"
+                  aria-label={checkpointLabel}
+                >
                   <div className="text-[11px] uppercase tracking-wide font-semibold text-cgiar-accent mb-1.5">
                     Acceptance checkpoint — turn {item.turn}
                   </div>
@@ -82,6 +114,7 @@ export default function ChatThread({ items, busy, onApprove, onRefine }: ChatThr
                   {showActions && (
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button
+                        ref={approveRef}
                         onClick={onApprove}
                         className="inline-flex items-center gap-1.5 rounded-lg bg-cgiar-accent text-cgiar-dark text-sm font-semibold px-4 py-2 hover:bg-green-400 transition-colors"
                       >

@@ -144,7 +144,7 @@ export default function TransparencyPage() {
         </p>
         <a
           href="mailto:ee-toolbox@cgiar.org"
-          className="inline-flex items-center gap-1.5 text-cgiar-accent text-sm font-medium hover:underline"
+          className="inline-flex items-center gap-1.5 text-cgiar-accent-dark text-sm font-medium hover:underline"
         >
           ee-toolbox@cgiar.org <ExternalLink size={14} />
         </a>
@@ -174,7 +174,7 @@ export default function TransparencyPage() {
             href="https://www.cgiar.org/"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-cgiar-accent text-sm font-medium hover:underline"
+            className="inline-flex items-center gap-1.5 text-cgiar-accent-dark text-sm font-medium hover:underline"
           >
             Learn more about CGIAR
             <ExternalLink size={14} />
