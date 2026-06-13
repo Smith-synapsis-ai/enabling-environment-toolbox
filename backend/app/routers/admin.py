@@ -9,6 +9,7 @@ Endpoints:
 """
 
 import logging
+import secrets
 import uuid as _uuid
 from datetime import datetime, timedelta, timezone
 
@@ -17,7 +18,7 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
+from app.config import settings, admin_password_is_secure
 from app.database import get_db, AsyncSessionLocal
 from app.schemas.tool import ToolCreate, ToolRead, ToolUpdate
 
@@ -115,7 +116,21 @@ async def verify_admin_token(
 @router.post("/admin/login", response_model=LoginResponse)
 async def admin_login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     """Authenticate with credentials and return a bearer token stored in the DB."""
-    if body.username != settings.ADMIN_USERNAME or body.password != settings.ADMIN_PASSWORD:
+    # Fail CLOSED: if no strong admin password is configured (empty or a known
+    # insecure placeholder such as the old "admin123" default), admin login is
+    # disabled entirely. This guarantees the historical default can never unlock
+    # the admin surface even if it leaks back into the environment.
+    if not admin_password_is_secure():
+        logger.warning(
+            "Admin login rejected: ADMIN_PASSWORD is unset or insecure — "
+            "login is disabled until a strong password is configured."
+        )
+        raise HTTPException(status_code=403, detail="Admin login is not configured")
+
+    # Constant-time comparison to avoid leaking credential length/content via timing.
+    username_ok = secrets.compare_digest(body.username, settings.ADMIN_USERNAME)
+    password_ok = secrets.compare_digest(body.password, settings.ADMIN_PASSWORD)
+    if not (username_ok and password_ok):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     # Delete expired tokens for this username

@@ -563,7 +563,48 @@ jobs:
             echo "DB credentials secret $DB_CREDS_SECRET not found — writing API keys only (dev/tst)."
           fi
 
-          export ANTHROPIC_API_KEY OPENAI_API_KEY
+          # ── Admin credentials (B1 — fail-closed admin auth) ──────────────────
+          # The backend ships with NO usable admin password default, so a strong
+          # ADMIN_PASSWORD MUST live in this secret or admin login fails CLOSED.
+          # Idempotent: reuse the existing strong password if one is already
+          # stored (so the credential is STABLE across deploys and Jose is not
+          # locked out); otherwise generate a fresh strong one. The old insecure
+          # "admin123" is treated as "not configured" and replaced.
+          EXISTING_SECRET_JSON=$(aws secretsmanager get-secret-value \
+            --secret-id "$API_KEYS_SECRET" --region "$AWS_REGION" \
+            --query 'SecretString' --output text 2>/dev/null || echo '{}')
+          ADMIN_USERNAME=$(echo "$EXISTING_SECRET_JSON" | python3 -c "
+          import sys, json
+          try: d = json.load(sys.stdin)
+          except Exception: d = {}
+          print(d.get('ADMIN_USERNAME') or 'admin', end='')
+          ")
+          ADMIN_PASSWORD=$(echo "$EXISTING_SECRET_JSON" | python3 -c "
+          import sys, json
+          INSECURE = {'', 'admin123', 'admin', 'password', 'changeme'}
+          try: d = json.load(sys.stdin)
+          except Exception: d = {}
+          pw = (d.get('ADMIN_PASSWORD') or '').strip()
+          if pw in INSECURE or len(pw) < 12:
+              pw = ''  # not strong enough — signal regeneration
+          print(pw, end='')
+          ")
+          if [ -z "$ADMIN_PASSWORD" ]; then
+            # Generate a strong, URL-safe random password (no shell-hostile chars).
+            ADMIN_PASSWORD=$(python3 -c "import secrets; print(secrets.token_urlsafe(24))")
+            echo "Generated a NEW strong ADMIN_PASSWORD (length: ${#ADMIN_PASSWORD})."
+            echo "::add-mask::$ADMIN_PASSWORD"
+            echo "ADMIN_PASSWORD_ROTATED=true" >> "$GITHUB_ENV"
+          else
+            echo "::add-mask::$ADMIN_PASSWORD"
+            echo "Reusing existing strong ADMIN_PASSWORD (length: ${#ADMIN_PASSWORD})."
+            echo "ADMIN_PASSWORD_ROTATED=false" >> "$GITHUB_ENV"
+          fi
+          # Surface the live credential to a later step (masked) only when freshly
+          # generated, so it can be DM'd to Jose. Written to a step output file.
+          echo "ADMIN_USERNAME_OUT=$ADMIN_USERNAME" >> "$GITHUB_ENV"
+
+          export ANTHROPIC_API_KEY OPENAI_API_KEY ADMIN_USERNAME ADMIN_PASSWORD
           # Build combined payload — DATABASE_URL keys included only when non-empty
           # so a missing DB creds secret never writes empty DB URLs into the secret.
           PAYLOAD=$(python3 -c "
@@ -571,6 +612,8 @@ jobs:
           d = {
               'ANTHROPIC_API_KEY': os.environ.get('ANTHROPIC_API_KEY', ''),
               'OPENAI_API_KEY':    os.environ.get('OPENAI_API_KEY', ''),
+              'ADMIN_USERNAME':    os.environ.get('ADMIN_USERNAME', 'admin'),
+              'ADMIN_PASSWORD':    os.environ.get('ADMIN_PASSWORD', ''),
           }
           if os.environ.get('DATABASE_URL'):
               d['DATABASE_URL'] = os.environ['DATABASE_URL']
@@ -597,6 +640,9 @@ jobs:
           print('OPENAI_API_KEY present:   ', bool(d.get('OPENAI_API_KEY')))
           print('DATABASE_URL present:     ', bool(d.get('DATABASE_URL')))
           print('DATABASE_URL_SYNC present:', bool(d.get('DATABASE_URL_SYNC')))
+          adminpw = d.get('ADMIN_PASSWORD','')
+          print('ADMIN_USERNAME:           ', d.get('ADMIN_USERNAME',''))
+          print('ADMIN_PASSWORD present:   ', bool(adminpw), '(strong)' if len(adminpw) >= 12 else '(WEAK!)')
           db = d.get('DATABASE_URL','')
           print('DATABASE_URL host:        ', db.split('@')[1].split('/')[0] if '@' in db else 'empty')
           "

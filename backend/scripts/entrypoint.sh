@@ -30,7 +30,23 @@ if [ -n "$_DB_URL_SYNC" ]; then
 else
     echo "ERROR: DATABASE_URL_SYNC key missing or empty in ee-toolbox-api-keys." >&2
 fi
-unset SECRET_JSON
+
+# ── Admin credentials (B1 — fail-closed admin auth) ──────────────────────────
+# The admin password is injected from the SAME Secrets Manager secret as the
+# API keys. config.py ships with NO usable default, so if ADMIN_PASSWORD is
+# absent here, admin login fails CLOSED (403) rather than accepting "admin123".
+_ADMIN_USER=$(echo "$SECRET_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('ADMIN_USERNAME',''))")
+_ADMIN_PW=$(echo "$SECRET_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('ADMIN_PASSWORD',''))")
+if [ -n "$_ADMIN_USER" ]; then
+    export ADMIN_USERNAME="$_ADMIN_USER"
+fi
+if [ -n "$_ADMIN_PW" ]; then
+    export ADMIN_PASSWORD="$_ADMIN_PW"
+    echo "ADMIN_PASSWORD loaded from secret (length: ${#_ADMIN_PW})."
+else
+    echo "WARNING: ADMIN_PASSWORD missing in ee-toolbox-api-keys — admin login will fail CLOSED (403) until it is set." >&2
+fi
+unset SECRET_JSON _ADMIN_PW
 echo "API keys loaded."
 
 # ── Restore agent_store.db from Litestream (S3) ──────────────────────────────
