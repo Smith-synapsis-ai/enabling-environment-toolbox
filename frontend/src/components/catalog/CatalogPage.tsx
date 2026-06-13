@@ -89,7 +89,7 @@ export default function CatalogPage({ onToolViewed }: CatalogPageProps) {
           <div className="flex-1 min-w-0">
             {/* Results header */}
             <div className="flex items-center justify-between mb-4">
-              <p className="text-sm text-gray-500" aria-live="polite" aria-atomic="true">
+              <p className="text-sm text-gray-600" aria-live="polite" aria-atomic="true">
                 {loading ? 'Searching...' : `${total} tool${total !== 1 ? 's' : ''} found`}
               </p>
               <select

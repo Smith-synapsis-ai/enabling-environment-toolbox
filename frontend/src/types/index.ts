@@ -180,7 +180,7 @@ export interface ToolCreate {
 export const TYPE_COLORS: Record<string, string> = {
   'Method': '#1565C0',
   'Framework': '#2E7D32',
-  'Manual': '#E65100',
+  'Manual': '#C24400',
   'Toolkit': '#7B1FA2',
   'Tool': '#00695C',
   'Guide': '#5D4037',
@@ -190,19 +190,20 @@ export const TYPE_COLORS: Record<string, string> = {
   'Scale': '#AD1457',
   'Academic Paper': '#1565C0',
   'Report': '#0D47A1',
-  'Training Manual': '#E65100',
+  'Training Manual': '#C24400',
   'Case Study': '#6A1B9A',
   'Guidelines': '#00838F',
   'Presentation': '#BF360C',
   'Program Description': '#33691E',
   'Policy Brief': '#F57F17',
-  'Other': '#607D8B',
+  'Other': '#566875',
 };
 
 /** Returns true if the TYPE_COLOR for this type needs dark text instead of white for WCAG AA contrast */
 export function typeBadgeNeedsDarkText(type: string): boolean {
-  // Brief (#F57F17) is the only remaining light-enough background to need dark text
-  return type === 'Brief';
+  // The amber/yellow badges (#F57F17) are too light for white text (only ~2.65:1);
+  // they use dark text instead to clear WCAG AA's 4.5:1 for small text.
+  return type === 'Brief' || type === 'Policy Brief';
 }
 
 export const PILLARS = [
