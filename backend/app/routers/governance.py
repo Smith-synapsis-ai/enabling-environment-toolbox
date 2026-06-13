@@ -125,7 +125,7 @@ async def submit_proposal(
             INSERT INTO content_proposals
                 (tool_id, proposal_type, submitted_by, provenance, proposed_fields)
             VALUES
-                (:tool_id, :proposal_type, :submitted_by, :provenance, :proposed_fields::jsonb)
+                (:tool_id, :proposal_type, :submitted_by, :provenance, CAST(:proposed_fields AS jsonb))
             RETURNING id, status, submitted_at
             """
         ),
