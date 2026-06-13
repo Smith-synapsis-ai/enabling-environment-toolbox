@@ -20,6 +20,7 @@ import ChatThread from '../components/assistant/ChatThread';
 import ChatInput from '../components/assistant/ChatInput';
 import ReportPanel from '../components/assistant/ReportPanel';
 import StepProgress from '../components/assistant/StepProgress';
+import { AssistantPulseSurveyBanner } from '../components/assistant/AssistantPulseSurveyBanner';
 
 const APPROVE_MESSAGE =
   'I approve this pathway — please proceed with the evidence drill-down.';
@@ -68,6 +69,7 @@ export default function AssistantPage() {
   const [flash, setFlash] = useState(false);
   const [mobileView, setMobileView] = useState<'chat' | 'report'>('chat');
   const [refineSeq, setRefineSeq] = useState(0);
+  const [showPulseSurvey, setShowPulseSurvey] = useState(false);
 
   const sessionIdRef = useRef<string>(getAssistantSessionId() || newAssistantSessionId());
   const turnRef = useRef(0); // logical user turns sent this browser session
@@ -128,6 +130,17 @@ export default function AssistantPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ----- pulse survey trigger (C5) ------------------------------------------
+  // Once a report has been drafted, offer a one-per-session feedback survey.
+  useEffect(() => {
+    if (flags.reportDrafted) {
+      const guardKey = `ee-assistant-pulse-shown-${sessionIdRef.current}`;
+      if (!sessionStorage.getItem(guardKey)) {
+        setShowPulseSurvey(true);
+      }
+    }
+  }, [flags.reportDrafted]);
 
   // ----- socket event handling ----------------------------------------------
   const handleEvent = useCallback((event: AssistantEvent) => {
@@ -430,6 +443,12 @@ export default function AssistantPage() {
           </div>
         </div>
       </div>
+
+      <AssistantPulseSurveyBanner
+        sessionId={sessionIdRef.current}
+        visible={showPulseSurvey}
+        onDismiss={() => setShowPulseSurvey(false)}
+      />
     </div>
   );
 }
