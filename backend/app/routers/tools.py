@@ -75,7 +75,7 @@ async def get_tool(
                    source_url, source_organization, cover_image_url,
                    average_rating, rating_count, view_count,
                    cgspace_id, relevance_score, is_visible,
-                   created_at, updated_at
+                   last_verified_at, created_at, updated_at
             FROM tools
             WHERE id = :tool_id
             """
@@ -121,6 +121,7 @@ async def get_tool(
         cgspace_id=row["cgspace_id"],
         relevance_score=float(row["relevance_score"]) if row["relevance_score"] is not None else None,
         is_visible=row["is_visible"],
+        last_verified_at=row["last_verified_at"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )

@@ -20,7 +20,7 @@ from app.models import (  # noqa: F401
 )
 
 # Import routers
-from app.routers import search, chat, tools, metrics, admin, admin_analytics, pulse_survey
+from app.routers import search, chat, tools, metrics, admin, admin_analytics, pulse_survey, governance
 from app.routers import assistant
 from app.routers import analytics_events
 
@@ -103,6 +103,7 @@ app.include_router(admin_analytics.router, prefix="/api", tags=["Admin Analytics
 app.include_router(pulse_survey.router, prefix="/api", tags=["Pulse Survey"])
 app.include_router(assistant.router, tags=["Assistant"])  # carries own /api + /ws paths
 app.include_router(analytics_events.router, tags=["Analytics Events"])
+app.include_router(governance.router, prefix="/api", tags=["Governance"])
 
 # ---------------------------------------------------------------------------
 # Health check

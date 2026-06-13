@@ -56,6 +56,7 @@ class ToolRead(ToolBase):
     average_rating: float
     rating_count: int
     view_count: int
+    last_verified_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
