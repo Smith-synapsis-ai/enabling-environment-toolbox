@@ -27,16 +27,46 @@ export default function TransparencyPage() {
           <h2 className="text-2xl font-bold text-gray-900">Model & Agent Architecture</h2>
         </div>
         <p className="text-gray-600 leading-relaxed mb-6">
-          The Scaling Challenge Assistant is powered by <strong>Claude Sonnet 4.5</strong> (Anthropic), accessed
-          via the Anthropic API. It operates as a <strong>multi-agent orchestrator</strong>: when you submit a
-          challenge, the system runs a pipeline that includes a triage step (interpreting your challenge and
-          geography), a corpus search step (matching your challenge against the curated tool database), and a
-          synthesis step (drafting a structured evidence report from the matched tools and their metadata).
+          The Scaling Challenge Assistant runs on Anthropic's Claude models, accessed via the Anthropic API.
+          It is a <strong>multi-agent system</strong>: a single <strong>orchestrator</strong> agent (Claude
+          Opus, model <code className="text-sm bg-gray-100 px-1.5 py-0.5 rounded">claude-opus-4-8</code>)
+          coordinates <strong>four specialized sub-agents</strong>, each running Claude Sonnet (model{' '}
+          <code className="text-sm bg-gray-100 px-1.5 py-0.5 rounded">claude-sonnet-4-6</code>) with its own
+          system prompt and tool access:
         </p>
+        <ul className="list-disc list-inside text-gray-600 space-y-2 text-sm mb-6">
+          <li>
+            <strong>Triage Specialist</strong> — interprets your challenge, identifies the innovation, actors,
+            geography and binding constraints, and maps it to the enabling-environment pillars.
+          </li>
+          <li>
+            <strong>Corpus Search Specialist</strong> — retrieves candidate tools from the curated catalog
+            using hybrid semantic + keyword search.
+          </li>
+          <li>
+            <strong>Multi-Tool Reasoning Specialist</strong> — combines and sequences several tools into an
+            integrated, multi-pillar pathway (not a tool-by-tool list).
+          </li>
+          <li>
+            <strong>Evidence Drill-Down Specialist</strong> — fetches deeper, source-cited evidence for the
+            tools you accept, grounded in the full source-document evidence corpus.
+          </li>
+        </ul>
         <p className="text-gray-600 leading-relaxed mb-6">
-          Each step is handled by a specialized sub-agent with a distinct system prompt and tool access. The
-          orchestrator coordinates these steps sequentially, passing context forward through the pipeline. The
-          full pipeline typically takes 1–4 minutes to complete a turn, depending on challenge complexity.
+          When you submit a challenge, the orchestrator runs a <strong>seven-step flow</strong>:
+        </p>
+        <ol className="list-decimal list-inside text-gray-600 space-y-2 text-sm mb-6">
+          <li><strong>Challenge intake (Triage)</strong> — restate the challenge and build a structured brief.</li>
+          <li><strong>Corpus search</strong> — retrieve a ranked candidate set of tools from the catalog.</li>
+          <li><strong>Wiki summary reading</strong> — read the full profile summaries for the candidate tools only.</li>
+          <li><strong>Multi-tool joint reasoning</strong> — synthesize the candidates into an integrated multi-pillar pathway.</li>
+          <li><strong>User acceptance checkpoint</strong> — present the pathway and pause for your confirmation before any costly evidence work (human-in-the-loop).</li>
+          <li><strong>Evidence drill-down</strong> — only after you accept, fetch deeper source-cited evidence for the accepted tools.</li>
+          <li><strong>Structured output</strong> — assemble the final report with the accepted pathway, per-tool rationale, and traceable citations.</li>
+        </ol>
+        <p className="text-gray-600 leading-relaxed mb-6">
+          A full turn typically takes 1–6 minutes depending on challenge complexity, and you can keep
+          refining the report in follow-up turns without re-running the whole flow.
         </p>
       </div>
 
