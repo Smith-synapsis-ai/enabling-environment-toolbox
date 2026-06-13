@@ -39,7 +39,13 @@ Parameters:
 
   LitestreamBucket:
     Type: String
-    Default: "ee-toolbox-sessions-207258148366"
+    # Default is the mgmt account (919959486181) where the backend ASG and its
+    # Litestream sessions bucket actually live. The previous default pointed at
+    # account 207258148366, so the Litestream-staleness alarm would have watched
+    # a bucket that does not exist in mgmt. deploy-monitoring.yml still overrides
+    # this dynamically with ee-toolbox-sessions-${ACCOUNT_ID}, but the default is
+    # now correct for a manual/default deploy too.
+    Default: "ee-toolbox-sessions-919959486181"
     Description: S3 bucket where Litestream writes WAL files
 
   HealthCheckUrl:

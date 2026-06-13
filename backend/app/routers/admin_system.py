@@ -74,12 +74,26 @@ async def system_health(_user: str = Depends(verify_admin_token)) -> dict:
         except Exception:  # noqa: BLE001
             restore_failed_detail = "marker present (unreadable)"
 
+    # Detectable signal from the supervised Litestream replicate daemon
+    # (entrypoint.sh Step 0 fix): present iff the daemon failed to stay up or
+    # exited. Its ABSENCE on a running instance means replication is live.
+    replicate_failed_marker = os.path.join(os.path.dirname(sqlite_path), ".replicate_failed")
+    replicate_failed = os.path.exists(replicate_failed_marker)
+    replicate_failed_detail = None
+    if replicate_failed:
+        try:
+            with open(replicate_failed_marker) as fh:
+                replicate_failed_detail = fh.read().strip()
+        except Exception:  # noqa: BLE001
+            replicate_failed_detail = "marker present (unreadable)"
+
     durable = await durable_health()
 
     overall_ok = (
         durable.get("connected", False)
         and sqlite_state in ("connected", "initializing")
         and not restore_failed
+        and not replicate_failed
     )
 
     return {
@@ -89,6 +103,8 @@ async def system_health(_user: str = Depends(verify_admin_token)) -> dict:
             "path": sqlite_path,
             "restore_failed": restore_failed,
             "restore_failed_detail": restore_failed_detail,
+            "replication_failed": replicate_failed,
+            "replication_failed_detail": replicate_failed_detail,
         },
         "durable_store_postgres": durable,
     }

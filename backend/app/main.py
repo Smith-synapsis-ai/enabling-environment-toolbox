@@ -24,6 +24,7 @@ from app.routers import search, chat, tools, metrics, admin, admin_analytics, pu
 from app.routers import assistant
 from app.routers import analytics_events
 from app.routers import admin_system
+from app.routers import thumbnails
 
 # Import services
 from app.services.tracking import TrackingService
@@ -106,6 +107,7 @@ app.include_router(assistant.router, tags=["Assistant"])  # carries own /api + /
 app.include_router(analytics_events.router, tags=["Analytics Events"])
 app.include_router(governance.router, prefix="/api", tags=["Governance"])
 app.include_router(admin_system.router, prefix="/api", tags=["Admin System"])
+app.include_router(thumbnails.router, prefix="/api", tags=["Thumbnails"])
 
 
 # ---------------------------------------------------------------------------
@@ -171,6 +173,13 @@ async def health_check():
     except Exception as e:  # noqa: BLE001
         session_state = f"error: {e}"
 
+    # Litestream replication liveness (Step 0 fix): the supervised replicate
+    # daemon drops a .replicate_failed marker iff it fails to stay up / exits.
+    # Marker ABSENT on a healthy instance == replication is live. This is
+    # informational only and never gates the ALB (same contract as session_store).
+    replicate_marker = os.path.join(os.path.dirname(db_path), ".replicate_failed")
+    session_replication = "failed" if os.path.exists(replicate_marker) else "active"
+
     # Durable Postgres business-data store (the durability bar, decision 5)
     durable = await durable_health()
     database = "connected" if durable.get("connected") else "initializing"
@@ -180,6 +189,7 @@ async def health_check():
         "status": "ok",
         "database": database,
         "session_store": session_state,
+        "session_replication": session_replication,
         "durable": durable,
     }
 

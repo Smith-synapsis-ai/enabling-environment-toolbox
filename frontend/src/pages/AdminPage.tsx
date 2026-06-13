@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Coins,
   ShieldCheck,
+  Image as ImageIcon,
 } from 'lucide-react';
 import {
   adminLogin,
@@ -22,6 +23,7 @@ import SessionExplorer from '../components/admin/SessionExplorer';
 import OverviewPanel from '../components/admin/OverviewPanel';
 import TokenUsagePanel from '../components/admin/TokenUsagePanel';
 import GovernanceQueue from '../components/admin/GovernanceQueue';
+import ThumbnailsPanel from '../components/admin/ThumbnailsPanel';
 
 // ---------------------------------------------------------------------------
 // Tab definition
@@ -32,6 +34,7 @@ const TABS = [
   { id: 'dashboard', label: 'Analytics', icon: BarChart3 },
   { id: 'tokens', label: 'Token Usage', icon: Coins },
   { id: 'governance', label: 'Governance', icon: ShieldCheck },
+  { id: 'thumbnails', label: 'Thumbnails', icon: ImageIcon },
   { id: 'tools', label: 'Tools', icon: Wrench },
   { id: 'sessions', label: 'Sessions', icon: Users },
 ] as const;
@@ -807,6 +810,7 @@ function AdminPanel({ onLogout }: { onLogout: () => void }) {
         {activeTab === 'dashboard' && <AnalyticsDashboard />}
         {activeTab === 'tokens' && <TokenUsagePanel />}
         {activeTab === 'governance' && <GovernanceQueue />}
+        {activeTab === 'thumbnails' && <ThumbnailsPanel />}
         {activeTab === 'tools' && <ToolsPanel onLogout={onLogout} />}
         {activeTab === 'sessions' && <SessionExplorer />}
       </div>

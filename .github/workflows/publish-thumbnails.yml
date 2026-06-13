@@ -1,0 +1,132 @@
+name: Publish Thumbnails
+
+# ==============================================================================
+# C6 Wave B / Thread 3 — the CONTROLLED S3 write path for the AI-thumbnail
+# pipeline. The running backend has NO long-lived S3 write IAM for thumbnails;
+# all writes to the thumbnails bucket happen HERE via OIDC (audited, credential-
+# free), mirroring the established ensure-litestream-bucket / publish-retrieval
+# resource pattern.
+#
+# Bucket: ee-toolbox-thumbnails-<acct> (public-read), keys:
+#   live:    thumbnails/<cgspace_id>.png
+#   staging: thumbnails-staging/<cgspace_id>.png
+#
+# Modes (workflow_dispatch input `action`):
+#   ensure   — create the bucket idempotently + public-read policy (run once)
+#   stage    — upload committed PNGs under `pipeline/thumbnails/staging/*.png`
+#              to thumbnails-staging/<id>.png (the agent harness commits the
+#              generated proof-batch PNGs, then dispatches this)
+#   promote  — copy thumbnails-staging/<id>.png -> thumbnails/<id>.png for the
+#              comma-separated `ids` (called on operator Approve)
+# ==============================================================================
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "ensure | stage | promote"
+        required: true
+        type: choice
+        options: [ensure, stage, promote]
+        default: stage
+      ids:
+        description: "Comma-separated cgspace_ids (for promote)"
+        required: false
+        default: ""
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: eu-central-1
+
+jobs:
+  publish:
+    name: Publish thumbnails to S3 (${{ inputs.action }})
+    runs-on: ubuntu-latest
+    environment: mgmt
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve bucket name (account-derived)
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "ACCOUNT_ID=$ACCOUNT_ID" >> "$GITHUB_ENV"
+          echo "BUCKET=ee-toolbox-thumbnails-${ACCOUNT_ID}" >> "$GITHUB_ENV"
+          echo "Account: $ACCOUNT_ID  Bucket: ee-toolbox-thumbnails-${ACCOUNT_ID}"
+
+      # -- ensure: idempotent public-read bucket ------------------------------
+      - name: Ensure bucket exists (idempotent, public-read for thumbnails)
+        if: ${{ inputs.action == 'ensure' }}
+        run: |
+          aws s3api head-bucket --bucket "$BUCKET" 2>/dev/null || \
+            aws s3api create-bucket --bucket "$BUCKET" --region "$AWS_REGION" \
+              --create-bucket-configuration LocationConstraint="$AWS_REGION"
+
+          # Public-read serving: thumbnails are non-sensitive catalog imagery.
+          # Allow public bucket policies (the default AL block would reject one).
+          aws s3api put-public-access-block --bucket "$BUCKET" \
+            --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=false,RestrictPublicBuckets=false
+
+          cat > /tmp/thumb-policy.json <<POLICY
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Sid": "PublicReadThumbnails",
+                "Effect": "Allow",
+                "Principal": "*",
+                "Action": "s3:GetObject",
+                "Resource": "arn:aws:s3:::${BUCKET}/*"
+              }
+            ]
+          }
+          POLICY
+          aws s3api put-bucket-policy --bucket "$BUCKET" --policy file:///tmp/thumb-policy.json
+          aws s3api get-bucket-policy --bucket "$BUCKET" --query Policy --output text
+          echo "Bucket $BUCKET is public-read for thumbnails."
+
+      # -- stage: upload committed PNGs to the staging prefix ------------------
+      - name: Stage thumbnails (upload committed PNGs to staging prefix)
+        if: ${{ inputs.action == 'stage' }}
+        run: |
+          SRC="pipeline/thumbnails/staging"
+          if [ ! -d "$SRC" ]; then
+            echo "No staging dir ($SRC) — nothing to stage."; exit 0
+          fi
+          shopt -s nullglob
+          count=0
+          for f in "$SRC"/*.png; do
+            base=$(basename "$f" .png)
+            key="thumbnails-staging/${base}.png"
+            echo "Uploading $f -> s3://$BUCKET/$key"
+            aws s3 cp "$f" "s3://$BUCKET/$key" --content-type image/png
+            count=$((count+1))
+          done
+          echo "Staged $count thumbnail(s)."
+          aws s3 ls "s3://$BUCKET/thumbnails-staging/"
+
+      # -- promote: copy staging -> live for approved ids ---------------------
+      - name: Promote approved thumbnails (staging -> live)
+        if: ${{ inputs.action == 'promote' }}
+        run: |
+          IDS="${{ inputs.ids }}"
+          if [ -z "$IDS" ]; then echo "No ids provided for promote."; exit 1; fi
+          IFS=',' read -ra ARR <<< "$IDS"
+          for id in "${ARR[@]}"; do
+            id=$(echo "$id" | xargs)   # trim
+            [ -z "$id" ] && continue
+            src="s3://$BUCKET/thumbnails-staging/${id}.png"
+            dst="s3://$BUCKET/thumbnails/${id}.png"
+            echo "Promoting $src -> $dst"
+            aws s3 cp "$src" "$dst" --content-type image/png
+          done
+          echo "Live keys now present:"
+          aws s3 ls "s3://$BUCKET/thumbnails/"

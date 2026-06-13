@@ -101,14 +101,60 @@ print('Artifacts loaded:', {k: str(v) for k, v in paths.items()})
 fi
 
 # ── Start Litestream replication daemon ──────────────────────────────────────
+# SUPERVISED + OBSERVABLE (C6 Wave B / Step 0).
+#
+# Previously this was a bare `litestream replicate ... &` whose stderr went
+# nowhere: if the daemon failed to start or died after boot, replication
+# silently stopped (observed: WAL writes stopped reaching S3 after an instance
+# refresh while /health still reported session_store:connected, because that
+# field only probes the local SQLite file — not whether replication is live).
+#
+# We now (a) tee the daemon's output to the bind-mounted log dir so failures
+# are inspectable via `docker logs` AND on-instance, (b) verify the daemon is
+# actually alive a moment after launch and log loudly + drop a detectable
+# marker if it is not, and (c) supervise it in a background restart loop so a
+# transient death self-heals instead of permanently stalling replication.
+LITESTREAM_LOG="/var/log/ee-toolbox/litestream.log"
+REPLICATE_FAILED_MARKER="/app/backend/data/.replicate_failed"
+rm -f "$REPLICATE_FAILED_MARKER" || true
 if [ -n "${LITESTREAM_S3_PATH:-}" ]; then
     # Derive bucket name from s3://BUCKET/path so litestream.yml can reference
     # it via ${LITESTREAM_S3_BUCKET} without a hardcoded account ID.
     export LITESTREAM_S3_BUCKET=$(echo "${LITESTREAM_S3_PATH}" | sed 's|s3://||' | cut -d'/' -f1)
     echo "Starting Litestream replication daemon (bucket: $LITESTREAM_S3_BUCKET)..."
-    litestream replicate -config /etc/litestream.yml &
-    LITESTREAM_PID=$!
-    echo "Litestream PID: $LITESTREAM_PID"
+
+    # Supervisor: keep the replicate daemon running for the life of the
+    # container; restart with backoff on unexpected exit. Output is tee'd to a
+    # persistent log so a dead daemon is always diagnosable.
+    (
+        while true; do
+            echo "[$(date -u +%FT%TZ)] starting litestream replicate (bucket=$LITESTREAM_S3_BUCKET)" >> "$LITESTREAM_LOG"
+            litestream replicate -config /etc/litestream.yml >> "$LITESTREAM_LOG" 2>&1
+            rc=$?
+            echo "[$(date -u +%FT%TZ)] litestream replicate exited rc=$rc — restarting in 5s" >> "$LITESTREAM_LOG"
+            echo "litestream-replicate-exited $(date -u +%FT%TZ) rc=$rc" > "$REPLICATE_FAILED_MARKER"
+            sleep 5
+        done
+    ) &
+    LITESTREAM_SUP_PID=$!
+    echo "Litestream supervisor PID: $LITESTREAM_SUP_PID"
+
+    # Verify the daemon actually came up (catches an immediate-failure loop,
+    # e.g. bad config / missing perms / unreadable DB) and surface it loudly.
+    sleep 3
+    if pgrep -f "litestream replicate" >/dev/null 2>&1; then
+        echo "OK: litestream replicate process is running."
+    else
+        echo "============================================================" >&2
+        echo "ERROR: litestream replicate did NOT stay up after launch!" >&2
+        echo "  Replication to $LITESTREAM_S3_PATH is NOT active." >&2
+        echo "  See $LITESTREAM_LOG for the daemon's own error output." >&2
+        echo "============================================================" >&2
+        echo "litestream-replicate-not-running $(date -u +%FT%TZ)" > "$REPLICATE_FAILED_MARKER"
+        echo "--- tail of $LITESTREAM_LOG ---" >&2
+        tail -n 20 "$LITESTREAM_LOG" >&2 2>/dev/null || true
+        # Do NOT exit: keep the app up (ALB liveness; durable data is in Postgres).
+    fi
 fi
 
 # ── Pre-cache Qwen3-Embedding-0.6B (required for semantic hybrid search) ─────

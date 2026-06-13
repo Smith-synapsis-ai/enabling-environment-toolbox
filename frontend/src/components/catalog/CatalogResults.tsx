@@ -1,4 +1,5 @@
 import TypeBadge from '../common/TypeBadge';
+import ToolCover from '../common/ToolCover';
 import { Star } from 'lucide-react';
 import type { ToolSearchResult } from '../../types';
 import { TYPE_COLORS } from '../../types';
@@ -29,26 +30,8 @@ export default function CatalogResults({ results, onToolClick }: CatalogResultsP
             onClick={() => onToolClick(tool)}
             className="bg-white rounded-xl shadow-sm hover:shadow-md border border-gray-100 overflow-hidden text-left transition-all group cursor-pointer"
           >
-            {/* Cover */}
-            {tool.cover_image_url ? (
-              <img
-                src={tool.cover_image_url}
-                alt={tool.title}
-                className="w-full h-40 object-cover"
-              />
-            ) : (
-              <div
-                className="w-full h-40 flex items-center justify-center"
-                style={{ backgroundColor: bgColor + '12' }}
-              >
-                <div
-                  className="w-14 h-14 rounded-full flex items-center justify-center text-white text-lg font-bold"
-                  style={{ backgroundColor: bgColor }}
-                >
-                  {tool.title.charAt(0)}
-                </div>
-              </div>
-            )}
+            {/* Cover — deterministic S3 thumbnail w/ letter-avatar fallback */}
+            <ToolCover tool={tool} bgColor={bgColor} className="w-full h-40" avatarClassName="w-14 h-14 text-lg" />
 
             {/* Content */}
             <div className="p-4">

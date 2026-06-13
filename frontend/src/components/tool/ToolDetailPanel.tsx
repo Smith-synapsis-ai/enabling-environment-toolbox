@@ -22,6 +22,7 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import TypeBadge from '../common/TypeBadge';
+import ToolCover from '../common/ToolCover';
 import StarRating from './StarRating';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { fetchTool, saveTool, unsaveTool } from '../../services/api';
@@ -241,26 +242,13 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
 
         {tool && (
           <>
-            {/* Cover image or placeholder */}
-            {tool.cover_image_url ? (
-              <img
-                src={tool.cover_image_url}
-                alt={tool.title}
-                className="w-full h-56 object-cover sm:rounded-t-2xl"
-              />
-            ) : (
-              <div
-                className="w-full h-56 flex items-center justify-center sm:rounded-t-2xl"
-                style={{ backgroundColor: bgColor + '15' }}
-              >
-                <div
-                  className="w-24 h-24 rounded-full flex items-center justify-center text-white text-3xl font-bold"
-                  style={{ backgroundColor: bgColor }}
-                >
-                  {tool.title.charAt(0)}
-                </div>
-              </div>
-            )}
+            {/* Cover — deterministic S3 thumbnail w/ letter-avatar fallback */}
+            <ToolCover
+              tool={tool}
+              bgColor={bgColor}
+              className="w-full h-56 sm:rounded-t-2xl"
+              avatarClassName="w-24 h-24 text-3xl"
+            />
 
             {/* Content */}
             <div className="p-6 sm:p-8">

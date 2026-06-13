@@ -320,6 +320,227 @@ async def get_token_recent(limit: int = 50) -> list[dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
+# Thumbnail pipeline jobs (C6 Wave B / Thread 3)
+# ---------------------------------------------------------------------------
+
+async def enqueue_thumbnail_jobs(
+    *,
+    batch_id: str,
+    tools: list[dict[str, Any]],
+    requested_by: str | None,
+) -> int:
+    """Enqueue one 'requested' job per tool for a generation batch.
+
+    ``tools`` items carry at least ``cgspace_id``; optionally ``tool_title`` and
+    ``prompt`` (the templated prompt). Re-requesting a tool that is not yet
+    approved replaces its prior non-approved row (keeps the review grid to one
+    active card per tool). Returns the number of rows enqueued.
+    """
+    now = _utc_now()
+    enqueued = 0
+    async with AsyncSessionLocal() as db:
+        for t in tools:
+            cg = t.get("cgspace_id")
+            if not cg:
+                continue
+            # Drop any prior non-approved row for this tool so re-requests don't
+            # pile up duplicate review cards.
+            await db.execute(
+                text(
+                    "DELETE FROM thumbnail_jobs "
+                    "WHERE cgspace_id = :cg AND status <> 'approved'"
+                ),
+                {"cg": cg},
+            )
+            await db.execute(
+                text(
+                    """
+                    INSERT INTO thumbnail_jobs (
+                        batch_id, cgspace_id, tool_title, prompt, status,
+                        requested_by, requested_at, updated_at
+                    ) VALUES (
+                        :batch_id, :cgspace_id, :tool_title, :prompt, 'requested',
+                        :requested_by, :now, :now
+                    )
+                    """
+                ),
+                {
+                    "batch_id": batch_id,
+                    "cgspace_id": cg,
+                    "tool_title": t.get("tool_title"),
+                    "prompt": t.get("prompt"),
+                    "requested_by": requested_by,
+                    "now": now,
+                },
+            )
+            enqueued += 1
+        await db.commit()
+    return enqueued
+
+
+async def list_thumbnail_jobs(status: str | None = None) -> list[dict[str, Any]]:
+    """Return thumbnail jobs (optionally filtered by status), newest first."""
+    async with AsyncSessionLocal() as db:
+        if status:
+            result = await db.execute(
+                text(
+                    """
+                    SELECT id, batch_id, cgspace_id, tool_title, prompt, status,
+                           staging_key, live_key, staging_url, live_url,
+                           cost_usd, error, requested_by, requested_at, updated_at
+                    FROM thumbnail_jobs
+                    WHERE status = :status
+                    ORDER BY requested_at DESC, id DESC
+                    """
+                ),
+                {"status": status},
+            )
+        else:
+            result = await db.execute(
+                text(
+                    """
+                    SELECT id, batch_id, cgspace_id, tool_title, prompt, status,
+                           staging_key, live_key, staging_url, live_url,
+                           cost_usd, error, requested_by, requested_at, updated_at
+                    FROM thumbnail_jobs
+                    ORDER BY requested_at DESC, id DESC
+                    """
+                )
+            )
+        rows = result.mappings().all()
+    return [dict(r) for r in rows]
+
+
+async def mark_thumbnail_staged(
+    *,
+    cgspace_id: str,
+    staging_key: str,
+    staging_url: str,
+    cost_usd: float | None = None,
+) -> None:
+    """Mark a tool's thumbnail as staged (image present at the staging key)."""
+    async with AsyncSessionLocal() as db:
+        await db.execute(
+            text(
+                """
+                UPDATE thumbnail_jobs
+                SET status = 'staged',
+                    staging_key = :sk,
+                    staging_url = :su,
+                    cost_usd = COALESCE(:cost, cost_usd),
+                    updated_at = :now
+                WHERE cgspace_id = :cg AND status <> 'approved'
+                """
+            ),
+            {
+                "sk": staging_key,
+                "su": staging_url,
+                "cost": cost_usd,
+                "now": _utc_now(),
+                "cg": cgspace_id,
+            },
+        )
+        await db.commit()
+
+
+async def mark_thumbnail_failed(*, cgspace_id: str, error: str) -> None:
+    """Mark a tool's thumbnail job as failed with a detail message."""
+    async with AsyncSessionLocal() as db:
+        await db.execute(
+            text(
+                """
+                UPDATE thumbnail_jobs
+                SET status = 'failed', error = :err, updated_at = :now
+                WHERE cgspace_id = :cg AND status <> 'approved'
+                """
+            ),
+            {"err": error[:1000], "now": _utc_now(), "cg": cgspace_id},
+        )
+        await db.commit()
+
+
+async def approve_thumbnail(
+    *,
+    cgspace_id: str,
+    live_key: str,
+    live_url: str,
+) -> bool:
+    """Approve a staged thumbnail: record live key/url + set cover_image_url.
+
+    Sets the tool's cover_image_url in the durable tools table so the detail/API
+    path renders the live image, and flips the job to 'approved'. The S3
+    staging->live copy is performed by the controlled CI publish path (the
+    backend has no long-lived S3 write IAM). Returns True if a tool row matched.
+    """
+    now = _utc_now()
+    async with AsyncSessionLocal() as db:
+        await db.execute(
+            text(
+                """
+                UPDATE thumbnail_jobs
+                SET status = 'approved', live_key = :lk, live_url = :lu,
+                    updated_at = :now
+                WHERE cgspace_id = :cg
+                """
+            ),
+            {"lk": live_key, "lu": live_url, "now": now, "cg": cgspace_id},
+        )
+        res = await db.execute(
+            text(
+                "UPDATE tools SET cover_image_url = :url WHERE cgspace_id = :cg"
+            ),
+            {"url": live_url, "cg": cgspace_id},
+        )
+        await db.commit()
+        matched = (res.rowcount or 0) > 0
+    return matched
+
+
+async def reject_thumbnail(*, cgspace_id: str) -> None:
+    """Reject a staged thumbnail (operator decision)."""
+    async with AsyncSessionLocal() as db:
+        await db.execute(
+            text(
+                """
+                UPDATE thumbnail_jobs
+                SET status = 'rejected', updated_at = :now
+                WHERE cgspace_id = :cg AND status <> 'approved'
+                """
+            ),
+            {"now": _utc_now(), "cg": cgspace_id},
+        )
+        await db.commit()
+
+
+async def get_unthumbnailed_tools(limit: int) -> list[dict[str, Any]]:
+    """Return tools (with metadata for prompt templating) that have no live
+    cover_image_url and no pending/staged/approved thumbnail job yet — the
+    natural 'next N to generate' set for a batch trigger."""
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            text(
+                """
+                SELECT t.cgspace_id, t.title, t.type, t.pillars, t.domains,
+                       t.summary
+                FROM tools t
+                WHERE t.cgspace_id IS NOT NULL
+                  AND (t.cover_image_url IS NULL OR t.cover_image_url = '')
+                  AND NOT EXISTS (
+                      SELECT 1 FROM thumbnail_jobs j
+                      WHERE j.cgspace_id = t.cgspace_id
+                        AND j.status IN ('requested', 'generating', 'staged', 'approved')
+                  )
+                ORDER BY t.title
+                LIMIT :limit
+                """
+            ),
+            {"limit": limit},
+        )
+        rows = result.mappings().all()
+    return [dict(r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
 # Health probe of the durable store (for the honest /health field, decision 4)
 # ---------------------------------------------------------------------------
 

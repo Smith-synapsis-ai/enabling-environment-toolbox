@@ -488,6 +488,84 @@ export async function rejectProposal(id: string, notes?: string): Promise<unknow
 }
 
 // ---------------------------------------------------------------------------
+// C6 Wave B — AI thumbnail pipeline (admin)
+// ---------------------------------------------------------------------------
+
+export interface ThumbnailJob {
+  id: number;
+  batch_id: string;
+  cgspace_id: string;
+  tool_title: string | null;
+  prompt: string | null;
+  status: string; // requested | generating | staged | approved | rejected | failed
+  staging_key: string | null;
+  live_key: string | null;
+  staging_url: string | null;
+  live_url: string | null;
+  cost_usd: number | null;
+  error: string | null;
+  requested_by: string | null;
+  requested_at: string | null;
+  updated_at: string | null;
+}
+
+export interface ThumbnailGridData {
+  bucket: string;
+  total: number;
+  jobs: ThumbnailJob[];
+}
+
+export async function fetchThumbnailJobs(status?: string): Promise<ThumbnailGridData> {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+  return adminRequest<ThumbnailGridData>(`/api/admin/thumbnails${qs}`);
+}
+
+export interface GenerateBatchResult {
+  batch_id: string | null;
+  enqueued: number;
+  bucket?: string;
+  note?: string;
+  tools: {
+    cgspace_id: string;
+    tool_title: string | null;
+    prompt: string;
+    staging_key: string;
+    live_key: string;
+  }[];
+}
+
+export async function generateThumbnailBatch(
+  count: number,
+  cgspaceIds?: string[],
+): Promise<GenerateBatchResult> {
+  return adminRequest<GenerateBatchResult>('/api/admin/thumbnails/generate', {
+    method: 'POST',
+    body: JSON.stringify({ count, cgspace_ids: cgspaceIds || null }),
+  });
+}
+
+export async function approveThumbnail(cgspaceId: string): Promise<unknown> {
+  return adminRequest(`/api/admin/thumbnails/${encodeURIComponent(cgspaceId)}/approve`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+export async function rejectThumbnail(cgspaceId: string): Promise<unknown> {
+  return adminRequest(`/api/admin/thumbnails/${encodeURIComponent(cgspaceId)}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+export async function regenerateThumbnail(cgspaceId: string): Promise<unknown> {
+  return adminRequest(`/api/admin/thumbnails/${encodeURIComponent(cgspaceId)}/regenerate`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Pulse survey submission (public endpoint — no admin auth)
 // ---------------------------------------------------------------------------
 

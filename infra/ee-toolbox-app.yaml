@@ -326,6 +326,7 @@ Resources:
               -e EE_RETRIEVAL_S3=${EERetrievalS3} \
               -e EE_SECRET_NAME=ee-toolbox-api-keys \
               -e LITESTREAM_S3_PATH=s3://ee-toolbox-sessions-${AWS::AccountId}/agent_store \
+              -e THUMBNAILS_BUCKET=ee-toolbox-thumbnails-${AWS::AccountId} \
               -e AWS_DEFAULT_REGION=${AWS::Region} \
               -v /var/log/ee-toolbox:/var/log/ee-toolbox \
               ${ImageUri}
