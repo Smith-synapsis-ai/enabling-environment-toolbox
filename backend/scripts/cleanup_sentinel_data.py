@@ -28,10 +28,41 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 
 from sqlalchemy import text
 
-from app.database import AsyncSessionLocal
+
+def _session_factory():
+    """Return an async session factory.
+
+    Preferred path: reuse the app's configured engine (app.database), so the
+    connection uses exactly the same DATABASE_URL/SSL the live app uses.
+
+    Fallback: when run via `docker exec` (a fresh process that did NOT inherit
+    the container's runtime-exported DATABASE_URL), the caller passes the raw
+    URL in EE_CLEANUP_DATABASE_URL. We build a dedicated engine from it with
+    ssl=require in connect_args (RDS rejects unencrypted), avoiding any URL/shell
+    quoting of the password.
+    """
+    raw = os.environ.get("EE_CLEANUP_DATABASE_URL", "").strip()
+    if raw:
+        from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+        # Strip any ssl/sslmode query param — we pass SSL via connect_args so a
+        # password containing URL-special chars is never re-parsed.
+        base = raw.split("?", 1)[0]
+        engine = create_async_engine(
+            base, echo=False, connect_args={"ssl": "require"}
+        )
+        return async_sessionmaker(bind=engine, expire_on_commit=False)
+
+    from app.database import AsyncSessionLocal
+
+    return AsyncSessionLocal
+
+
+AsyncSessionLocal = _session_factory()
 
 # --- Known sentinel / QA-test identifiers (explicit, never wildcards) --------
 
