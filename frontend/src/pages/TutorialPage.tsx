@@ -375,7 +375,7 @@ export default function TutorialPage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               to="/"
-              className="inline-flex items-center gap-2 bg-cgiar-accent hover:bg-cgiar-accent/90 text-white font-medium px-6 py-3 rounded-lg transition-colors"
+              className="inline-flex items-center gap-2 bg-cgiar-accent-dark hover:bg-cgiar-accent-dark/90 text-white font-medium px-6 py-3 rounded-lg transition-colors"
             >
               <MessageSquare size={18} />
               Start a Conversation
