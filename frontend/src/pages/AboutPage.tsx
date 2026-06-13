@@ -221,7 +221,7 @@ export default function AboutPage() {
         <h2 className="text-2xl font-bold text-gray-900 mb-2 text-center">
           How It Works
         </h2>
-        <p className="text-gray-500 text-center mb-10 max-w-xl mx-auto">
+        <p className="text-gray-600 text-center mb-10 max-w-xl mx-auto">
           Find the right enabling environment tool in three simple steps.
         </p>
 
@@ -265,7 +265,7 @@ export default function AboutPage() {
           <h2 className="text-2xl font-bold text-gray-900 mb-2 text-center">
             The Five Pillars
           </h2>
-          <p className="text-gray-500 text-center mb-8 max-w-xl mx-auto">
+          <p className="text-gray-600 text-center mb-8 max-w-xl mx-auto">
             The enabling environment is organized across five thematic pillars,
             each representing a critical dimension for scaling agricultural
             innovations.
@@ -296,7 +296,7 @@ export default function AboutPage() {
         <h2 className="text-2xl font-bold text-gray-900 mb-2 text-center">
           The Three Domains
         </h2>
-        <p className="text-gray-500 text-center mb-8 max-w-xl mx-auto">
+        <p className="text-gray-600 text-center mb-8 max-w-xl mx-auto">
           Tools are further classified across three cross-cutting domains that
           reflect CGIAR's strategic priorities.
         </p>
@@ -333,7 +333,7 @@ export default function AboutPage() {
               Meet the Team
             </h2>
           </div>
-          <p className="text-gray-500 text-center mb-10 max-w-xl mx-auto">
+          <p className="text-gray-600 text-center mb-10 max-w-xl mx-auto">
             The people behind the Enabling Environment Toolbox.
           </p>
 
@@ -354,13 +354,13 @@ export default function AboutPage() {
                 <h3 className="text-base font-semibold text-gray-900 mb-1">
                   {member.name}
                 </h3>
-                <p className="text-sm text-cgiar-accent font-medium mb-1">
+                <p className="text-sm text-cgiar-accent-dark font-medium mb-1">
                   {member.role}
                 </p>
-                <p className="text-xs text-gray-500 mb-3">
+                <p className="text-xs text-gray-600 mb-3">
                   {member.organization}
                 </p>
-                <p className="text-xs text-gray-500 italic">{member.bio}</p>
+                <p className="text-xs text-gray-600 italic">{member.bio}</p>
               </div>
             ))}
           </div>

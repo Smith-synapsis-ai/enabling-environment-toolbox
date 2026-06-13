@@ -199,7 +199,7 @@ export default function TutorialPage() {
           <p className="text-white font-semibold text-lg">
             Tutorial Video Coming Soon
           </p>
-          <p className="text-gray-500 text-sm mt-1">
+          <p className="text-gray-300 text-sm mt-1">
             A walkthrough of the toolbox features will be available here
           </p>
         </div>
@@ -208,14 +208,14 @@ export default function TutorialPage() {
       {/* ── Method 1: AI-Guided Discovery ──────────────────────────── */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
         <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 bg-cgiar-accent/10 text-cgiar-accent rounded-full px-4 py-1.5 text-sm font-medium mb-4">
+          <div className="inline-flex items-center gap-2 bg-cgiar-accent/10 text-cgiar-accent-dark rounded-full px-4 py-1.5 text-sm font-medium mb-4">
             <MessageSquare size={16} />
             Method 1
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             AI-Guided Discovery
           </h2>
-          <p className="text-gray-500 max-w-xl mx-auto">
+          <p className="text-gray-600 max-w-xl mx-auto">
             Let our AI assistant help you find the right tools by understanding
             your specific context
           </p>
@@ -254,7 +254,7 @@ export default function TutorialPage() {
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
               Catalog Search
             </h2>
-            <p className="text-gray-500 max-w-xl mx-auto">
+            <p className="text-gray-600 max-w-xl mx-auto">
               Browse and filter the complete collection using taxonomy-based
               filters
             </p>

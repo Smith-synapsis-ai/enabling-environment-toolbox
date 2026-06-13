@@ -149,7 +149,7 @@ export default function ChatInput({
           multiple
           className="hidden"
           onChange={handleFileChange}
-          aria-hidden="true"
+          aria-label="Attach file"
           tabIndex={-1}
         />
       )}
