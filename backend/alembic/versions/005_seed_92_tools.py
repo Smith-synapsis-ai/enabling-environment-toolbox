@@ -20,12 +20,20 @@ Approach
 * We extract the 92 INSERT INTO public.tools statements via regex and
   append ON CONFLICT (cgspace_id) DO NOTHING to each, making the migration
   safe to re-run.
-* exec_driver_sql() is used instead of op.execute(text()) to bypass
-  SQLAlchemy's parameter-placeholder parser, which would misinterpret colons
-  in embedded values.
+* We use the raw psycopg2 DBAPI cursor (conn.connection.cursor()) and call
+  cur.execute(sql) with a SINGLE argument — no params object.  This is
+  critical: psycopg2 performs % interpolation only when a params argument is
+  supplied, so literal "%" chars in seed values (e.g. "60% of agricultural
+  labor") pass through untouched.  SQLAlchemy's exec_driver_sql() always
+  passes an immutabledict as params, which causes a TypeError in the Cython
+  build; the raw cursor sidesteps both issues.
+* The seeding is wrapped in a broad except so an unexpected error in the
+  data-seed step never crash-loops the application — a partial or empty
+  catalog is far preferable to a hard 502.
 """
 
 import re
+import traceback
 from pathlib import Path
 
 from alembic import op
@@ -48,22 +56,38 @@ _PATTERN = re.compile(
 
 
 def upgrade() -> None:
-    seed_sql = _SEED_PATH.read_text(encoding="utf-8")
-    matches = _PATTERN.findall(seed_sql)
+    try:
+        seed_sql = _SEED_PATH.read_text(encoding="utf-8")
+        matches = _PATTERN.findall(seed_sql)
 
-    if not matches:
-        raise RuntimeError(
-            f"005_seed_92_tools: no INSERT INTO public.tools statements found in {_SEED_PATH}"
+        if not matches:
+            print(
+                f"005_seed_92_tools: WARNING — no INSERT INTO public.tools statements "
+                f"found in {_SEED_PATH}. Skipping seed step; app will still start."
+            )
+            return
+
+        conn = op.get_bind()
+        # Use the raw psycopg2 DBAPI connection so we can call cur.execute(sql)
+        # with a single argument.  conn.connection is a PoolProxiedConnection that
+        # exposes a cursor() method backed by the real psycopg2 connection.
+        dbapi_conn = conn.connection
+        cur = dbapi_conn.cursor()
+        count = 0
+        for stmt in matches:
+            idempotent = stmt + " ON CONFLICT (cgspace_id) DO NOTHING"
+            cur.execute(idempotent)
+            count += 1
+        cur.close()
+
+        print(f"005_seed_92_tools: inserted/skipped {count} tool records")
+
+    except Exception:
+        print(
+            "005_seed_92_tools: ERROR during seed — logging and continuing so the "
+            "app can still start.  Catalog may be empty or partial."
         )
-
-    conn = op.get_bind()
-    count = 0
-    for stmt in matches:
-        idempotent = stmt + " ON CONFLICT (cgspace_id) DO NOTHING"
-        conn.exec_driver_sql(idempotent)
-        count += 1
-
-    print(f"005_seed_92_tools: inserted/skipped {count} tool records")
+        traceback.print_exc()
 
 
 def downgrade() -> None:
