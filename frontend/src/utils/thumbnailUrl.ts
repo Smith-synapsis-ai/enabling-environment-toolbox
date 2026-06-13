@@ -14,7 +14,9 @@
 
 const THUMBS_BUCKET =
   (import.meta.env.VITE_THUMBNAILS_BUCKET as string | undefined) ||
-  'ee-toolbox-thumbnails-919959486181';
+  // Defaults to the account that serves the live backend (deploy.yml -> prd /
+  // 207258148366), where approved thumbnails are published.
+  'ee-toolbox-thumbnails-207258148366';
 const THUMBS_REGION =
   (import.meta.env.VITE_THUMBNAILS_REGION as string | undefined) || 'eu-central-1';
 

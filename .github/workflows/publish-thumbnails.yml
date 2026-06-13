@@ -29,6 +29,12 @@ on:
         type: choice
         options: [ensure, stage, promote]
         default: stage
+      environment:
+        description: "Target AWS account environment (must match the account that serves the live backend)"
+        required: true
+        type: choice
+        options: [prd, mgmt, dev, tst]
+        default: prd
       ids:
         description: "Comma-separated cgspace_ids (for promote)"
         required: false
@@ -45,7 +51,7 @@ jobs:
   publish:
     name: Publish thumbnails to S3 (${{ inputs.action }})
     runs-on: ubuntu-latest
-    environment: mgmt
+    environment: ${{ inputs.environment }}
     steps:
       - uses: actions/checkout@v4
 
