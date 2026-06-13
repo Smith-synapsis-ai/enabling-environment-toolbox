@@ -100,6 +100,15 @@ jobs:
           fi
           echo "DATABASE_URL host: $(echo "$DATABASE_URL" | python3 -c "import sys; u=sys.stdin.read().strip(); print(u.split('@')[1].split('/')[0] if '@' in u else 'parse-error')")"
 
+          # RDS requires TLS (pg_hba rejects unencrypted). asyncpg negotiates SSL
+          # via the ssl=require query param; add it if not already present so a
+          # fresh connection (outside the long-lived app engine) is accepted.
+          case "$DATABASE_URL" in
+            *ssl=*|*sslmode=*) : ;;
+            *\?*) DATABASE_URL="${DATABASE_URL}&ssl=require" ;;
+            *)    DATABASE_URL="${DATABASE_URL}?ssl=require" ;;
+          esac
+
           # The committed script is baked into the running image at
           # /app/backend/scripts/cleanup_sentinel_data.py. All output
           # (stdout+stderr) is captured so the before/after counts and the exact
