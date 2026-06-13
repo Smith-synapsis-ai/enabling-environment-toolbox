@@ -37,6 +37,17 @@ jobs:
       AWS_REGION: eu-central-1
       ECR_REPOSITORY: ee-toolbox-backend
       ASG_NAME: ee-toolbox-mgmt
+      # ── DB secret folding (prevents DATABASE_URL crash-loop on instance refresh) ──
+      # This is the real prod backend deploy path: it starts an ASG instance
+      # refresh, so the new instance MUST find DATABASE_URL in ee-toolbox-api-keys
+      # before it boots. We populate the secret immediately before the refresh,
+      # using the same logic as ops-fix-db-url.yml.
+      API_KEYS_SECRET: ee-toolbox-api-keys
+      DB_CREDS_SECRET: ee-toolbox-prd-db-credentials
+      DB_HOST: ee-toolbox-prd-db.cl6246422thq.eu-central-1.rds.amazonaws.com
+      DB_PORT: "5432"
+      DB_USER: eetoolbox
+      DB_NAME: ee_toolbox
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -63,6 +74,76 @@ jobs:
           docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
           docker push "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
           echo "Pushed $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG and :latest"
+
+      # ── Populate DATABASE_URL into api-keys secret BEFORE instance refresh ──
+      # The fresh instance reads ee-toolbox-api-keys at boot via entrypoint.sh.
+      # If DATABASE_URL is absent, SQLAlchemy raises ArgumentError → crash-loop
+      # → 502. This step reads ee-toolbox-prd-db-credentials, builds the DB URLs,
+      # and merges them with the API keys (same logic as ops-fix-db-url.yml),
+      # so no manual ops-fix is ever needed after a deploy.
+      - name: Populate DATABASE_URL into api-keys secret
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          echo "Populating $API_KEYS_SECRET (API keys + DATABASE_URL) before instance refresh"
+
+          DATABASE_URL=""
+          DATABASE_URL_SYNC=""
+          if aws secretsmanager describe-secret --secret-id "$DB_CREDS_SECRET" --region "$AWS_REGION" >/dev/null 2>&1; then
+            echo "Reading DB credentials from: $DB_CREDS_SECRET"
+            DB_CREDS_JSON=$(aws secretsmanager get-secret-value \
+              --secret-id "$DB_CREDS_SECRET" --region "$AWS_REGION" \
+              --query 'SecretString' --output text)
+            DB_PASSWORD=$(echo "$DB_CREDS_JSON" | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          pw = d.get('password') or d.get('Password') or d.get('PGPASSWORD') or d.get('db_password') or ''
+          if not pw:
+              print('ERROR: could not find password key in secret', file=sys.stderr)
+              sys.exit(1)
+          print(pw, end='')
+          ")
+            echo "DB password extracted (length: ${#DB_PASSWORD})"
+            DATABASE_URL="postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+            DATABASE_URL_SYNC="postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+            export DATABASE_URL DATABASE_URL_SYNC
+            echo "DATABASE_URL host check: $(echo "$DATABASE_URL" | python3 -c "import sys; u=sys.stdin.read().strip(); print(u.split('@')[1].split('/')[0] if '@' in u else 'parse-error')")"
+          else
+            echo "DB credentials secret $DB_CREDS_SECRET not found — writing API keys only."
+          fi
+
+          export ANTHROPIC_API_KEY OPENAI_API_KEY
+          PAYLOAD=$(python3 -c "
+          import json, os
+          d = {
+              'ANTHROPIC_API_KEY': os.environ.get('ANTHROPIC_API_KEY', ''),
+              'OPENAI_API_KEY':    os.environ.get('OPENAI_API_KEY', ''),
+          }
+          if os.environ.get('DATABASE_URL'):
+              d['DATABASE_URL'] = os.environ['DATABASE_URL']
+          if os.environ.get('DATABASE_URL_SYNC'):
+              d['DATABASE_URL_SYNC'] = os.environ['DATABASE_URL_SYNC']
+          print(json.dumps(d))
+          ")
+
+          echo "Writing combined secret to: $API_KEYS_SECRET"
+          aws secretsmanager put-secret-value \
+            --secret-id "$API_KEYS_SECRET" \
+            --secret-string "$PAYLOAD" \
+            --region "$AWS_REGION"
+
+          aws secretsmanager get-secret-value \
+            --secret-id "$API_KEYS_SECRET" --region "$AWS_REGION" \
+            --query 'SecretString' --output text \
+          | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          print('ANTHROPIC_API_KEY present:', bool(d.get('ANTHROPIC_API_KEY')))
+          print('OPENAI_API_KEY present:   ', bool(d.get('OPENAI_API_KEY')))
+          print('DATABASE_URL present:     ', bool(d.get('DATABASE_URL')))
+          print('DATABASE_URL_SYNC present:', bool(d.get('DATABASE_URL_SYNC')))
+          "
 
       - name: Start ASG instance refresh
         run: |
