@@ -38,13 +38,19 @@ jobs:
       ECR_REPOSITORY: ee-toolbox-backend
       ASG_NAME: ee-toolbox-mgmt
       # ── DB secret folding (prevents DATABASE_URL crash-loop on instance refresh) ──
-      # This is the real prod backend deploy path: it starts an ASG instance
-      # refresh, so the new instance MUST find DATABASE_URL in ee-toolbox-api-keys
-      # before it boots. We populate the secret immediately before the refresh,
-      # using the same logic as ops-fix-db-url.yml.
+      # This is the real prod backend deploy path: it runs in the GitHub `mgmt`
+      # environment, whose deploy role lives in AWS account 919959486181 — the
+      # SAME account as the ee-toolbox-mgmt ASG it refreshes and the
+      # ee-toolbox-api-keys secret the running container reads (EE_SECRET_NAME).
+      # The DB credentials in THIS account are ee-toolbox-mgmt-db-credentials
+      # for the ee-toolbox-mgmt-db RDS instance (NOT ee-toolbox-prd-db-credentials,
+      # which only exists in account 207258148366 / the prd GitHub environment).
+      # The new instance MUST find DATABASE_URL in ee-toolbox-api-keys before it
+      # boots, so we populate the secret immediately before the refresh using the
+      # same logic as ops-fix-db-url.yml.
       API_KEYS_SECRET: ee-toolbox-api-keys
-      DB_CREDS_SECRET: ee-toolbox-prd-db-credentials
-      DB_HOST: ee-toolbox-prd-db.cl6246422thq.eu-central-1.rds.amazonaws.com
+      DB_CREDS_SECRET: ee-toolbox-mgmt-db-credentials
+      DB_HOST: ee-toolbox-mgmt-db.cr8b99ph4qzq.eu-central-1.rds.amazonaws.com
       DB_PORT: "5432"
       DB_USER: eetoolbox
       DB_NAME: ee_toolbox
