@@ -18,8 +18,18 @@ print(client.get_secret_value(SecretId='$SECRET_NAME')['SecretString'])
 ")
 export ANTHROPIC_API_KEY=$(echo "$SECRET_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['ANTHROPIC_API_KEY'])")
 export OPENAI_API_KEY=$(echo "$SECRET_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['OPENAI_API_KEY'])")
-export DATABASE_URL=$(echo "$SECRET_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('DATABASE_URL',''))")
-export DATABASE_URL_SYNC=$(echo "$SECRET_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('DATABASE_URL_SYNC',''))")
+_DB_URL=$(echo "$SECRET_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('DATABASE_URL',''))")
+if [ -n "$_DB_URL" ]; then
+    export DATABASE_URL="$_DB_URL"
+else
+    echo "ERROR: DATABASE_URL key missing or empty in ee-toolbox-api-keys — SQLAlchemy will fail to start. Run ops-fix-db-url.yml to populate the secret." >&2
+fi
+_DB_URL_SYNC=$(echo "$SECRET_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('DATABASE_URL_SYNC',''))")
+if [ -n "$_DB_URL_SYNC" ]; then
+    export DATABASE_URL_SYNC="$_DB_URL_SYNC"
+else
+    echo "ERROR: DATABASE_URL_SYNC key missing or empty in ee-toolbox-api-keys." >&2
+fi
 unset SECRET_JSON
 echo "API keys loaded."
 
