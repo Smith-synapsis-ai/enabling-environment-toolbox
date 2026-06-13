@@ -101,7 +101,7 @@ export default function AnalyticsDashboard() {
         <GeographyChart days={days} />
 
         {/* Row 5 */}
-        <GoalTracker days={days} />
+        <GoalTracker />
         <MauGrowthChart />
 
         {/* Row 6 */}

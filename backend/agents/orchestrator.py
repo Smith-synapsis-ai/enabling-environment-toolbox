@@ -203,6 +203,34 @@ def _block_text(content: Any) -> str:
     return str(content)
 
 
+def _parse_usage(usage: Any) -> dict[str, int | None]:
+    """Extract token counts from the SDK ResultMessage.usage object.
+
+    ``usage`` may be a dict or an object; Anthropic uses keys
+    ``input_tokens`` / ``output_tokens`` / ``cache_read_input_tokens`` /
+    ``cache_creation_input_tokens``. Tolerant of missing keys (returns None).
+    """
+    def _get(key: str):
+        if usage is None:
+            return None
+        if isinstance(usage, dict):
+            return usage.get(key)
+        return getattr(usage, key, None)
+
+    def _int(v):
+        try:
+            return int(v) if v is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    return {
+        "input_tokens": _int(_get("input_tokens")),
+        "output_tokens": _int(_get("output_tokens")),
+        "cache_read_tokens": _int(_get("cache_read_input_tokens")),
+        "cache_creation_tokens": _int(_get("cache_creation_input_tokens")),
+    }
+
+
 async def run_challenge(
     challenge_text: str,
     session_id: str | None = None,
@@ -322,6 +350,33 @@ async def run_challenge(
             # for this logical session resumes from it (A5 multi-turn).
             if message.session_id:
                 _RESUME_IDS[sid] = message.session_id
+
+            # -- Durable token-usage capture (C6 Wave A, Thread 2) -----------
+            # The ResultMessage is the single transport-agnostic chokepoint for
+            # per-turn cost/usage, so persisting here covers BOTH the WS and CLI
+            # round-trip paths. Wrapped log-only: telemetry must NEVER break a
+            # turn (same contract as analytics ingest).
+            try:
+                from persistence.durable import record_token_usage
+
+                _u = _parse_usage(message.usage)
+                await record_token_usage(
+                    session_id=sid,
+                    turn=turn,
+                    orchestrator_model=ORCHESTRATOR_MODEL,
+                    subagent_model=SUBAGENT_MODEL,
+                    num_turns=message.num_turns,
+                    duration_ms=message.duration_ms,
+                    input_tokens=_u["input_tokens"],
+                    output_tokens=_u["output_tokens"],
+                    cache_read_tokens=_u["cache_read_tokens"],
+                    cache_creation_tokens=_u["cache_creation_tokens"],
+                    total_cost_usd=message.total_cost_usd,
+                    is_error=bool(message.is_error),
+                )
+            except Exception:  # noqa: BLE001
+                logger.warning("token-usage capture failed (non-fatal)", exc_info=True)
+
             yield {
                 "type": "result",
                 "session_id": message.session_id,

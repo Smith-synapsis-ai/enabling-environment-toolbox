@@ -34,14 +34,53 @@ unset SECRET_JSON
 echo "API keys loaded."
 
 # ── Restore agent_store.db from Litestream (S3) ──────────────────────────────
+# NON-SILENT restore-on-boot (C6 Wave A, decision 4 + Thread 4).
+#
+# The DURABLE business data (KPI/analytics/survey/token) now lives in Postgres
+# RDS, which survives instance replacement — so a failed SQLite restore no
+# longer loses that data. This SQLite store carries session/report-draft state.
+# We still make restore LOUD and DETECTABLE: if a Litestream replica EXISTS but
+# the restore did not produce a DB file, that is a hard, alertable condition.
+# We deliberately do NOT exit non-zero (decision 4: keep the process up so the
+# ALB stays healthy and the ASG is not wedged); instead we drop a detectable
+# marker file that the app/ops can surface.
 AGENT_DB_PATH="${AGENT_STORE_PATH:-/app/backend/data/agent_store.db}"
+RESTORE_FAILED_MARKER="$(dirname "$AGENT_DB_PATH")/.restore_failed"
 mkdir -p "$(dirname "$AGENT_DB_PATH")"
+rm -f "$RESTORE_FAILED_MARKER" || true
 
 if [ -n "${LITESTREAM_S3_PATH:-}" ]; then
     echo "Restoring agent_store.db from Litestream: $LITESTREAM_S3_PATH"
-    litestream restore -if-replica-exists -o "$AGENT_DB_PATH" "$LITESTREAM_S3_PATH" || {
-        echo "No replica found or restore failed — starting with fresh DB"
-    }
+    # Detect whether a replica actually exists (distinguishes genuine first boot
+    # from a real restore failure).
+    REPLICA_EXISTS="no"
+    if litestream snapshots "$LITESTREAM_S3_PATH" 2>/dev/null | grep -q .; then
+        REPLICA_EXISTS="yes"
+    fi
+    echo "Litestream replica present: $REPLICA_EXISTS"
+
+    if litestream restore -if-replica-exists -o "$AGENT_DB_PATH" "$LITESTREAM_S3_PATH"; then
+        echo "Litestream restore command completed."
+    else
+        echo "WARNING: litestream restore returned non-zero."
+    fi
+
+    if [ -f "$AGENT_DB_PATH" ]; then
+        echo "OK: agent_store.db present after restore ($(stat -c%s "$AGENT_DB_PATH" 2>/dev/null || echo '?') bytes)."
+    elif [ "$REPLICA_EXISTS" = "yes" ]; then
+        # A replica EXISTS but we have no DB file: this is the silent-data-loss
+        # condition we are guarding against. Make it LOUD and DETECTABLE.
+        echo "============================================================" >&2
+        echo "ERROR: LITESTREAM REPLICA EXISTS BUT RESTORE PRODUCED NO DB!" >&2
+        echo "  Replica: $LITESTREAM_S3_PATH" >&2
+        echo "  Durable business data is SAFE in Postgres RDS, but the" >&2
+        echo "  SQLite session store failed to restore. Investigate." >&2
+        echo "============================================================" >&2
+        echo "litestream-restore-failed $(date -u +%FT%TZ) replica=$LITESTREAM_S3_PATH" > "$RESTORE_FAILED_MARKER"
+        # Do NOT exit: keep the process up (ALB stays healthy, ASG not wedged).
+    else
+        echo "No Litestream replica yet (genuine first boot) — starting with fresh SQLite DB."
+    fi
 else
     echo "LITESTREAM_S3_PATH not set — skipping restore (dev mode)"
 fi

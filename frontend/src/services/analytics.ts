@@ -327,6 +327,167 @@ export async function downloadExport(days: number): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// C6 Wave A — durable KPI / survey / system-health / token-usage / governance
+// ---------------------------------------------------------------------------
+
+async function publicRequest<T>(url: string): Promise<T> {
+  const response = await fetch(`${API_BASE}${url}`);
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => 'Unknown error');
+    throw new Error(`API error ${response.status}: ${errorText}`);
+  }
+  return response.json();
+}
+
+// ---- C4 KPI access events (public, durable Postgres) ----
+
+export interface KpiData {
+  kpi_access_events: number;
+  kpi_target: number;
+  kpi_progress_pct: number;
+  counts_by_event: Record<string, number>;
+}
+
+export async function fetchKpi(): Promise<KpiData> {
+  return publicRequest<KpiData>('/api/events/kpi');
+}
+
+// ---- C5 pulse-survey (public, durable Postgres — canonical source) ----
+
+export interface SurveyRecent {
+  score: number | null;
+  comment: string | null;
+  session_id: string | null;
+  created_at: string | null;
+}
+
+export interface SurveyData {
+  total_responses: number;
+  average_score: number;
+  score_distribution: Record<string, number>;
+  recent: SurveyRecent[];
+}
+
+export async function fetchSurvey(): Promise<SurveyData> {
+  return publicRequest<SurveyData>('/api/events/survey');
+}
+
+// ---- System health (admin) ----
+
+export interface SystemHealthData {
+  status: string;
+  session_store_sqlite: {
+    state: string;
+    path: string;
+    restore_failed: boolean;
+    restore_failed_detail: string | null;
+  };
+  durable_store_postgres: {
+    connected: boolean;
+    analytics_events?: number;
+    token_usage?: number;
+    error?: string;
+  };
+}
+
+export async function fetchSystemHealth(): Promise<SystemHealthData> {
+  return adminRequest<SystemHealthData>('/api/admin/system/health');
+}
+
+// ---- Token usage (admin) ----
+
+export interface TokenByModel {
+  model: string;
+  runs: number;
+  cost_usd: number;
+  input_tokens: number;
+  output_tokens: number;
+}
+
+export interface TokenSummary {
+  runs: number;
+  total_cost_usd: number;
+  avg_cost_per_query_usd: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_cache_read_tokens: number;
+  total_cache_creation_tokens: number;
+  total_turns: number;
+  benchmark_low_usd: number;
+  benchmark_high_usd: number;
+  by_model: TokenByModel[];
+}
+
+export async function fetchTokenSummary(): Promise<TokenSummary> {
+  return adminRequest<TokenSummary>('/api/admin/token-usage/summary');
+}
+
+export interface TokenRow {
+  session_id: string | null;
+  turn: number | null;
+  created_at: string | null;
+  orchestrator_model: string | null;
+  subagent_model: string | null;
+  num_turns: number | null;
+  duration_ms: number | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  cache_read_tokens: number | null;
+  cache_creation_tokens: number | null;
+  total_cost_usd: number | null;
+  is_error: boolean | null;
+}
+
+export interface TokenRecentData {
+  rows: TokenRow[];
+  limit: number;
+}
+
+export async function fetchTokenRecent(limit = 50): Promise<TokenRecentData> {
+  return adminRequest<TokenRecentData>(`/api/admin/token-usage/recent?limit=${limit}`);
+}
+
+// ---- Governance review queue (admin) ----
+
+export interface Proposal {
+  id: string;
+  tool_id: string | null;
+  proposal_type: string;
+  submitted_by: string | null;
+  provenance: string | null;
+  proposed_fields: Record<string, unknown>;
+  status: string;
+  reviewer_notes: string | null;
+  reviewed_by: string | null;
+  submitted_at: string;
+  reviewed_at: string | null;
+}
+
+export interface ProposalListData {
+  total: number;
+  proposals: Proposal[];
+}
+
+export async function fetchProposals(status?: string): Promise<ProposalListData> {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+  return adminRequest<ProposalListData>(`/api/admin/governance/proposals${qs}`);
+}
+
+export async function approveProposal(id: string): Promise<unknown> {
+  return adminRequest(`/api/admin/governance/proposals/${id}/approve`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+export async function rejectProposal(id: string, notes?: string): Promise<unknown> {
+  return adminRequest(`/api/admin/governance/proposals/${id}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ reviewer_notes: notes || null }),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Pulse survey submission (public endpoint — no admin auth)
 // ---------------------------------------------------------------------------
 

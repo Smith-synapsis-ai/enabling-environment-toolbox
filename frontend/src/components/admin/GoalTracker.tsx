@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react';
 import { Target } from 'lucide-react';
-import { fetchOverview } from '../../services/analytics';
-import type { OverviewData } from '../../services/analytics';
+import { fetchKpi } from '../../services/analytics';
+import type { KpiData } from '../../services/analytics';
 
-interface GoalTrackerProps {
-  days: number;
-}
+// G4 (decision 2): the goal is 5,000 de-duplicated ACCESS EVENTS — someone
+// opening the app, one per browser session. This reads the REAL C4
+// access_event count from the durable /api/events/kpi endpoint, NOT Postgres
+// total_users / distinct sessions. The frontend already de-duplicates access
+// events per browser session (App.tsx 'ee-access-tracked' guard).
 
-const USER_GOAL = 5000;
-
-export default function GoalTracker({ days }: GoalTrackerProps) {
-  const [data, setData] = useState<OverviewData | null>(null);
+export default function GoalTracker() {
+  const [data, setData] = useState<KpiData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -18,19 +18,20 @@ export default function GoalTracker({ days }: GoalTrackerProps) {
     let cancelled = false;
     setLoading(true);
     setError('');
-    fetchOverview(days)
+    fetchKpi()
       .then(result => { if (!cancelled) setData(result); })
       .catch(err => { if (!cancelled) setError(err.message); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [days]);
+  }, []);
 
   if (loading) return <div className="animate-pulse bg-gray-100 rounded-lg h-32" />;
   if (error) return <div className="text-red-500 text-sm p-4">{error}</div>;
   if (!data) return null;
 
-  const current = data.total_users;
-  const pct = Math.min((current / USER_GOAL) * 100, 100);
+  const current = data.kpi_access_events;
+  const goal = data.kpi_target;
+  const pct = Math.min((current / goal) * 100, 100);
   const pctDisplay = pct.toFixed(1);
 
   return (
@@ -38,7 +39,7 @@ export default function GoalTracker({ days }: GoalTrackerProps) {
       <div className="flex items-center gap-2 mb-3">
         <Target size={18} className="text-cgiar-accent" />
         <h3 className="text-sm font-semibold text-cgiar-dark">
-          Goal: {USER_GOAL.toLocaleString()} Users
+          Goal: {goal.toLocaleString()} Access Events
         </h3>
       </div>
 
@@ -47,7 +48,7 @@ export default function GoalTracker({ days }: GoalTrackerProps) {
           {current.toLocaleString()}
         </span>
         <span className="text-sm text-gray-500 mb-1">
-          / {USER_GOAL.toLocaleString()} ({pctDisplay}%)
+          / {goal.toLocaleString()} ({pctDisplay}%)
         </span>
       </div>
 
@@ -62,8 +63,8 @@ export default function GoalTracker({ days }: GoalTrackerProps) {
       </div>
 
       <p className="text-xs text-gray-400 mt-2">
-        {(USER_GOAL - current) > 0
-          ? `${(USER_GOAL - current).toLocaleString()} users remaining`
+        {(goal - current) > 0
+          ? `${(goal - current).toLocaleString()} access events remaining · de-duplicated per browser session (C4/G4)`
           : 'Goal reached!'}
       </p>
     </div>

@@ -4,6 +4,9 @@ import {
   Wrench,
   Users,
   LogOut,
+  LayoutDashboard,
+  Coins,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   adminLogin,
@@ -16,13 +19,19 @@ import type { ToolDetail, ToolCreate, AdminToolsResponse } from '../types';
 import { PILLARS, DOMAINS, TYPES, STAGES, TARGET_USERS, GEOGRAPHIES } from '../types';
 import AnalyticsDashboard from '../components/admin/AnalyticsDashboard';
 import SessionExplorer from '../components/admin/SessionExplorer';
+import OverviewPanel from '../components/admin/OverviewPanel';
+import TokenUsagePanel from '../components/admin/TokenUsagePanel';
+import GovernanceQueue from '../components/admin/GovernanceQueue';
 
 // ---------------------------------------------------------------------------
 // Tab definition
 // ---------------------------------------------------------------------------
 
 const TABS = [
-  { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+  { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { id: 'dashboard', label: 'Analytics', icon: BarChart3 },
+  { id: 'tokens', label: 'Token Usage', icon: Coins },
+  { id: 'governance', label: 'Governance', icon: ShieldCheck },
   { id: 'tools', label: 'Tools', icon: Wrench },
   { id: 'sessions', label: 'Sessions', icon: Users },
 ] as const;
@@ -758,7 +767,7 @@ function ToolsPanel({ onLogout }: { onLogout: () => void }) {
 // ---------------------------------------------------------------------------
 
 function AdminPanel({ onLogout }: { onLogout: () => void }) {
-  const [activeTab, setActiveTab] = useState<TabId>('dashboard');
+  const [activeTab, setActiveTab] = useState<TabId>('overview');
 
   return (
     <div className="min-h-screen bg-gray-50 pt-20 pb-10">
@@ -794,7 +803,10 @@ function AdminPanel({ onLogout }: { onLogout: () => void }) {
         </div>
 
         {/* Tab content */}
+        {activeTab === 'overview' && <OverviewPanel />}
         {activeTab === 'dashboard' && <AnalyticsDashboard />}
+        {activeTab === 'tokens' && <TokenUsagePanel />}
+        {activeTab === 'governance' && <GovernanceQueue />}
         {activeTab === 'tools' && <ToolsPanel onLogout={onLogout} />}
         {activeTab === 'sessions' && <SessionExplorer />}
       </div>
