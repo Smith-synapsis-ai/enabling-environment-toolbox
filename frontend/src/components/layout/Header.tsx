@@ -13,6 +13,7 @@ export default function Header() {
     { to: '/', label: 'Home' },
     { to: '/about', label: 'About' },
     { to: '/tutorial', label: 'Tutorial' },
+    { to: '/success-stories', label: 'Success Stories' },
   ];
 
   const rightNavLinks = [

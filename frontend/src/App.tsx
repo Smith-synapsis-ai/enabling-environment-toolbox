@@ -10,6 +10,7 @@ import CatalogPage from './pages/CatalogPage';
 import AdminPage from './pages/AdminPage';
 import AssistantPage from './pages/AssistantPage';
 import TransparencyPage from './pages/TransparencyPage';
+import SuccessStoriesPage from './pages/SuccessStoriesPage';
 import { trackEvent } from './services/trackEvent';
 
 /** Capture UTM parameters from the URL on first load and persist in sessionStorage. */
@@ -72,6 +73,7 @@ function AppContent() {
           <Route path="/catalog" element={<CatalogPage onToolViewed={handleToolViewed} />} />
           <Route path="/assistant" element={<AssistantPage />} />
           <Route path="/transparency" element={<TransparencyPage />} />
+          <Route path="/success-stories" element={<SuccessStoriesPage />} />
           <Route path="/admin" element={<AdminPage />} />
         </Routes>
       </main>
