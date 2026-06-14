@@ -312,24 +312,25 @@ Resources:
             # so the full userdata output is readable without SSM access.
             log "Installing amazon-cloudwatch-agent for userdata log streaming"
             dnf install -y amazon-cloudwatch-agent || log "WARNING: CW agent install failed (non-fatal)"
-            cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << 'CWEOF'
-{
-  "logs": {
-    "logs_collected": {
-      "files": {
-        "collect_list": [
-          {
-            "file_path": "/var/log/ee-toolbox-userdata.log",
-            "log_group_name": "/ec2/ee-toolbox-dev-userdata",
-            "log_stream_name": "{instance_id}",
-            "auto_removal": false
-          }
-        ]
-      }
-    }
-  }
-}
-CWEOF
+            mkdir -p /opt/aws/amazon-cloudwatch-agent/etc
+            printf '%s\n' \
+              '{' \
+              '  "logs": {' \
+              '    "logs_collected": {' \
+              '      "files": {' \
+              '        "collect_list": [' \
+              '          {' \
+              '            "file_path": "/var/log/ee-toolbox-userdata.log",' \
+              '            "log_group_name": "/ec2/ee-toolbox-dev-userdata",' \
+              '            "log_stream_name": "{instance_id}",' \
+              '            "auto_removal": false' \
+              '          }' \
+              '        ]' \
+              '      }' \
+              '    }' \
+              '  }' \
+              '}' \
+              > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
             /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
               -a fetch-config -m ec2 -s \
               -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json \
