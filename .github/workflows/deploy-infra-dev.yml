@@ -72,7 +72,7 @@ jobs:
       # Amplify app ID (shared with prod — dev uses a separate branch)
       AMPLIFY_APP_ID: d15pb16eb2gi8i
       # Route53 hosted zone for synapsis-analytics.com
-      HOSTED_ZONE_ID: Z0417783J3CS5K67ASGM
+      HOSTED_ZONE_ID: Z079841559W4HJ5A3Q2Y
       # VPC + subnets (same as prod — different stack, same network)
       VPC_ID: vpc-024b5db1d38ced3a7
       SUBNET_IDS: "subnet-04fab9f22fe889781,subnet-0e77bf3abe86ca9db,subnet-04e0659a8cfefb1b5"
