@@ -243,7 +243,8 @@ Resources:
   # ---------------------------------------------------------------------------
   # Launch Template
   # AMI: al2023-ami-2023.12.20260608.0-kernel-6.1-x86_64 (eu-central-1)
-  # t3.small: 2 vCPU / 2 GB RAM — sufficient for dev/test traffic.
+  # t3.medium: 2 vCPU / 4 GB RAM — required for Qwen/Qwen3-Embedding-0.6B model.
+  # t3.small (2 GB) OOM-kills the container before it can produce any output.
   # IMDS hop limit 2 allows Docker (bridge network) to reach instance metadata.
   # ---------------------------------------------------------------------------
   LaunchTemplate:
@@ -252,7 +253,7 @@ Resources:
       LaunchTemplateName: !Sub "ee-toolbox-${Environment}"
       LaunchTemplateData:
         ImageId: ami-0c8ab82f51d47e1be
-        InstanceType: t3.small
+        InstanceType: t3.medium
         IamInstanceProfile:
           Arn: !GetAtt EC2InstanceProfile.Arn
         SecurityGroupIds:
