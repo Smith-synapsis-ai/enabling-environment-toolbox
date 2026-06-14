@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { FileText, MessageSquare, Plus, WifiOff } from 'lucide-react';
 import { useChallengeSocket } from '../hooks/useChallengeSocket';
 import {
@@ -60,6 +61,9 @@ function uid(prefix: string): string {
 }
 
 export default function AssistantPage() {
+  const location = useLocation();
+  const initialChallenge = (location.state as { initialChallenge?: string } | null)?.initialChallenge;
+
   const [items, setItems] = useState<ThreadItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [flags, setFlags] = useState<StepFlags>(EMPTY_FLAGS);
@@ -76,6 +80,7 @@ export default function AssistantPage() {
   const toolNamesRef = useRef<Map<string, string>>(new Map()); // tool_use_id -> short name
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initialChallengeSentRef = useRef(false);
 
   const append = useCallback((item: ThreadItem) => {
     setItems(prev => [...prev, item]);
@@ -275,13 +280,25 @@ export default function AssistantPage() {
         void refreshDraft(false);
         break;
 
+      case 'generation_cancelled':
+        // Server confirmed the in-flight turn was aborted. Unblock the input;
+        // the socket stays open for the next turn. The user-facing notice is
+        // appended optimistically by handleStop, so don't duplicate it here.
+        setBusy(false);
+        setItems(prev =>
+          prev.map(item =>
+            item.kind === 'subagent' && !item.finished ? { ...item, finished: true } : item,
+          ),
+        );
+        break;
+
       case 'error':
         append({ kind: 'error', id: uid('err'), message: event.message });
         break;
     }
   }, [append, refreshDraft]);
 
-  const { connectionState, sendChallenge } = useChallengeSocket(handleEvent);
+  const { connectionState, sendChallenge, cancel } = useChallengeSocket(handleEvent);
 
   // ----- actions -------------------------------------------------------------
   const sendTurn = useCallback((text: string) => {
@@ -298,6 +315,29 @@ export default function AssistantPage() {
     append({ kind: 'user', id: uid('user'), text });
     setBusy(true);
   }, [append, sendChallenge]);
+
+  // ----- auto-send the challenge passed from the home hero box ---------------
+  // The home page navigates here with location.state.initialChallenge. Once the
+  // socket is open (and only once), send it as the first turn. A ref guards
+  // against re-firing on reconnects / re-renders.
+  useEffect(() => {
+    if (
+      initialChallenge &&
+      !initialChallengeSentRef.current &&
+      connectionState === 'open'
+    ) {
+      initialChallengeSentRef.current = true;
+      sendTurn(initialChallenge);
+    }
+  }, [initialChallenge, connectionState, sendTurn]);
+
+  // ----- stop / cancel a running turn ----------------------------------------
+  const handleStop = useCallback(() => {
+    cancel(sessionIdRef.current);
+    // Optimistic local unblock; the backend also emits generation_cancelled.
+    setBusy(false);
+    append({ kind: 'notice', id: uid('notice'), text: 'Generation stopped.' });
+  }, [cancel, append]);
 
   const handleApprove = useCallback(() => {
     append({ kind: 'notice', id: uid('decision'), text: '✓ Pathway approved — proceeding to evidence drill-down' });
@@ -421,12 +461,14 @@ export default function AssistantPage() {
               busy={busy}
               onApprove={handleApprove}
               onRefine={handleRefine}
+              candidateTools={draft?.candidate_tools ?? []}
             />
             <div className="shrink-0 pt-2 pb-1">
               <ChatInput
                 disabled={inputDisabled}
                 busy={busy}
                 onSend={sendTurn}
+                onStop={handleStop}
                 inputRef={inputRef}
                 onAttach={handleAttach}
                 prefill="Please refine the pathway by: "

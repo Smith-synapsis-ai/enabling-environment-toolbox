@@ -1,19 +1,26 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { SendHorizonal, LayoutGrid } from 'lucide-react';
 import BackgroundCarousel from './BackgroundCarousel';
 import MetricsBar from './MetricsBar';
 
 interface HeroSectionProps {
-  onSendMessage: (message: string) => void;
+  /** Called with the challenge text when the user submits (e.g. analytics). */
+  onSubmitChallenge?: (message: string) => void;
 }
 
-export default function HeroSection({ onSendMessage }: HeroSectionProps) {
+export default function HeroSection({ onSubmitChallenge }: HeroSectionProps) {
   const [inputValue, setInputValue] = useState('');
+  const navigate = useNavigate();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (inputValue.trim()) {
-      onSendMessage(inputValue.trim());
+    const text = inputValue.trim();
+    if (text) {
+      onSubmitChallenge?.(text);
+      // Launch the full Assistant experience with the challenge pre-filled and
+      // auto-sent once its WebSocket opens (AssistantPage reads location.state).
+      navigate('/assistant', { state: { initialChallenge: text } });
       setInputValue('');
     }
   };

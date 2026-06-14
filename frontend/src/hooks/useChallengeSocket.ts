@@ -31,6 +31,9 @@ export interface ChallengeSocket {
   connectionState: ConnectionState;
   /** Send one challenge turn. Returns false if the socket is not open. */
   sendChallenge: (challengeText: string, sessionId: string) => boolean;
+  /** Request cancellation of the in-flight turn. Keeps the socket open so the
+   *  next turn can reuse it. Returns false if the socket is not open. */
+  cancel: (sessionId: string) => boolean;
 }
 
 export function useChallengeSocket(
@@ -110,5 +113,14 @@ export function useChallengeSocket(
     return true;
   }, []);
 
-  return { connectionState, sendChallenge };
+  const cancel = useCallback((sessionId: string): boolean => {
+    const ws = socketRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      return false;
+    }
+    ws.send(JSON.stringify({ type: 'cancel', session_id: sessionId }));
+    return true;
+  }, []);
+
+  return { connectionState, sendChallenge, cancel };
 }

@@ -112,7 +112,16 @@ async def challenge_ws(websocket: WebSocket) -> None:
                 continue
 
             # -- run one orchestrator turn (serialized globally) --------
-            try:
+            #
+            # The streaming turn runs as a Task while a sibling coroutine reads
+            # further inbound frames CONCURRENTLY.  A ``{"type": "cancel"}``
+            # frame cancels the streaming task, which propagates CancelledError
+            # into the ``async for`` and closes the underlying SDK ``query``
+            # generator (aborting the LLM call).  The socket is kept open for
+            # the next turn (no disconnect / reconnect).
+            cancelled = False
+
+            async def _stream_turn() -> None:
                 async with _CHALLENGE_LOCK:
                     # 3600s hard timeout INSIDE the lock so lock-wait time is
                     # not charged against the user's turn.  This matches the
@@ -128,6 +137,55 @@ async def challenge_ws(websocket: WebSocket) -> None:
                             await websocket.send_text(
                                 json.dumps(event, default=str)
                             )
+
+            async def _watch_for_cancel(task: "asyncio.Task[None]") -> None:
+                """Read inbound frames while the turn streams; cancel on demand.
+
+                Uses a short receive timeout so the watcher can notice when the
+                streaming task finishes on its own and exit promptly.  A
+                disconnect mid-turn also tears the streaming task down.
+                """
+                while not task.done():
+                    try:
+                        raw_inner = await asyncio.wait_for(
+                            websocket.receive_text(), timeout=1.0
+                        )
+                    except asyncio.TimeoutError:
+                        continue
+                    except WebSocketDisconnect:
+                        task.cancel()
+                        return
+                    except Exception:  # noqa: BLE001
+                        return
+                    try:
+                        inner = json.loads(raw_inner)
+                    except json.JSONDecodeError:
+                        continue
+                    if isinstance(inner, dict) and inner.get("type") == "cancel":
+                        task.cancel()
+                        return
+
+            try:
+                streaming_task = asyncio.create_task(_stream_turn())
+                cancel_watcher = asyncio.create_task(
+                    _watch_for_cancel(streaming_task)
+                )
+                try:
+                    await streaming_task
+                except asyncio.CancelledError:
+                    cancelled = True
+                finally:
+                    cancel_watcher.cancel()
+                    try:
+                        await cancel_watcher
+                    except (asyncio.CancelledError, Exception):  # noqa: BLE001
+                        pass
+
+                if cancelled:
+                    await websocket.send_text(json.dumps({
+                        "type": "generation_cancelled",
+                        "session_id": str(session_id) if session_id else None,
+                    }))
             except WebSocketDisconnect:
                 raise
             except TimeoutError:

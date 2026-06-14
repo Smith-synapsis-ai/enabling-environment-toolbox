@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect, type RefObject } from 'react';
-import { Send, Loader2, Paperclip, Mic, MicOff } from 'lucide-react';
+import { Send, Square, Paperclip, Mic, MicOff } from 'lucide-react';
 
 interface ChatInputProps {
   disabled: boolean;
   busy: boolean;
   onSend: (text: string) => void;
+  /** Called when the user clicks Stop while a turn is generating. */
+  onStop?: () => void;
   inputRef: RefObject<HTMLTextAreaElement | null>;
   /** Optional file-attachment callback.  When provided, a paperclip button is
    *  shown.  The parent decides what to do with the FileList (e.g. prepend a
@@ -43,6 +45,7 @@ export default function ChatInput({
   disabled,
   busy,
   onSend,
+  onStop,
   inputRef,
   onAttach,
   prefill,
@@ -214,19 +217,28 @@ export default function ChatInput({
         </button>
       )}
 
-      {/* Send */}
-      <button
-        onClick={submit}
-        disabled={disabled || !text.trim()}
-        className="shrink-0 rounded-xl bg-cgiar-accent text-cgiar-dark p-2.5 hover:bg-green-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-        aria-label="Send message"
-      >
-        {busy ? (
-          <Loader2 size={18} className="animate-spin" aria-hidden="true" />
-        ) : (
+      {/* Send / Stop — while a turn is generating and an onStop handler is
+          provided, show a Stop button that cancels the stream. */}
+      {busy && onStop ? (
+        <button
+          type="button"
+          onClick={onStop}
+          className="shrink-0 rounded-xl bg-red-500/20 text-red-300 border border-red-400/40 p-2.5 hover:bg-red-500/30 transition-colors"
+          aria-label="Stop generation"
+          title="Stop generation"
+        >
+          <Square size={18} fill="currentColor" aria-hidden="true" />
+        </button>
+      ) : (
+        <button
+          onClick={submit}
+          disabled={disabled || !text.trim()}
+          className="shrink-0 rounded-xl bg-cgiar-accent text-cgiar-dark p-2.5 hover:bg-green-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          aria-label="Send message"
+        >
           <Send size={18} aria-hidden="true" />
-        )}
-      </button>
+        </button>
+      )}
     </div>
   );
 }

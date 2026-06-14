@@ -71,6 +71,11 @@ export interface TurnCompleteEvent {
   type: 'turn_complete';
 }
 
+export interface GenerationCancelledEvent {
+  type: 'generation_cancelled';
+  session_id: string;
+}
+
 export interface ServerErrorEvent {
   type: 'error';
   message: string;
@@ -86,6 +91,7 @@ export type AssistantEvent =
   | ToolResultEvent
   | ResultEvent
   | TurnCompleteEvent
+  | GenerationCancelledEvent
   | ServerErrorEvent;
 
 // ---------------------------------------------------------------------------

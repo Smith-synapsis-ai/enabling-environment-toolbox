@@ -1,19 +1,22 @@
 import { useEffect, useRef } from 'react';
 import { AlertTriangle, Info, ThumbsUp, PenLine, Loader2 } from 'lucide-react';
-import type { ThreadItem } from '../../types/assistant';
+import type { CandidateTool, ThreadItem } from '../../types/assistant';
 import Markdown from './Markdown';
 import SubagentPane from './SubagentPane';
 import ToolChip from './ToolChip';
+import ToolChips from './ToolChips';
 
 interface ChatThreadProps {
   items: ThreadItem[];
   busy: boolean;
   onApprove: () => void;
   onRefine: () => void;
+  /** Recommended/candidate tools from the live report draft (Item 2 deep-links). */
+  candidateTools?: CandidateTool[];
 }
 
 /** The main conversation column: bubbles, subagent panes, tool chips, checkpoints. */
-export default function ChatThread({ items, busy, onApprove, onRefine }: ChatThreadProps) {
+export default function ChatThread({ items, busy, onApprove, onRefine, candidateTools = [] }: ChatThreadProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const approveRef = useRef<HTMLButtonElement>(null);
 
@@ -24,6 +27,12 @@ export default function ChatThread({ items, busy, onApprove, onRefine }: ChatThr
   // The acceptance checkpoint actions only show on the LAST result item, and
   // only when no turn is currently running.
   const lastResultId = [...items].reverse().find(i => i.kind === 'result')?.id;
+
+  // Only surface tools the assistant still considers in play (not rejected),
+  // and only those that carry a CGSpace handle id we can deep-link to.
+  const relevantTools = candidateTools.filter(
+    t => t.status !== 'rejected' && !!t.id,
+  );
 
   // ── Accessibility: focus management on the acceptance checkpoint ──────────
   // When a checkpoint becomes actionable (turn finished + Approve/Refine shown),
@@ -110,6 +119,13 @@ export default function ChatThread({ items, busy, onApprove, onRefine }: ChatThr
                   </div>
                   {item.event.final_text && (
                     <Markdown tone="dark">{item.event.final_text}</Markdown>
+                  )}
+                  {/* Deterministic catalog deep-link chips for the latest turn.
+                      Independent of whether the model inlined markdown links. */}
+                  {item.id === lastResultId && !busy && relevantTools.length > 0 && (
+                    <ToolChips
+                      tools={relevantTools.map(t => ({ id: t.id, title: t.title }))}
+                    />
                   )}
                   {showActions && (
                     <div className="mt-3 flex flex-wrap gap-2">
