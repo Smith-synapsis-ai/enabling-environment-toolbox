@@ -224,6 +224,7 @@ Resources:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                   - logs:DescribeLogStreams
+                  - logs:DescribeLogGroups
                 Resource:
                   - !Sub "arn:aws:logs:eu-central-1:${AWS::AccountId}:log-group:/ecs/ee-toolbox-dev-backend"
                   - !Sub "arn:aws:logs:eu-central-1:${AWS::AccountId}:log-group:/ecs/ee-toolbox-dev-backend:*"
@@ -315,6 +316,7 @@ Resources:
               --log-opt awslogs-region=${AWS::Region} \
               --log-opt awslogs-group=/ecs/ee-toolbox-dev-backend \
               --log-opt awslogs-stream-prefix=backend \
+              --log-opt awslogs-create-group=true \
               -e EE_RETRIEVAL_S3=${EERetrievalS3} \
               -e EE_SECRET_NAME=ee-toolbox-dev-api-keys \
               -e LITESTREAM_S3_PATH=s3://ee-toolbox-dev-sessions-${AWS::AccountId}/agent_store \
