@@ -120,10 +120,12 @@ jobs:
               f"echo '{script_b64}' | base64 -d > /tmp/cleanup_sentinel_data.py; "
               f"docker cp /tmp/cleanup_sentinel_data.py {container}:/tmp/cleanup_sentinel_data.py; "
               f"DBURL=$(echo '{dburl_b64}' | base64 -d); "
-              "echo '--- running cleanup script (stdout+stderr) ---'; "
+              "echo '--- running cleanup script (last 80 lines; SSM caps inline stdout) ---'; "
               f"docker exec -e PYTHONPATH=/app/backend:/app -e EE_CLEANUP_DATABASE_URL=\"$DBURL\" "
-              f"{container} python3 /tmp/cleanup_sentinel_data.py {flag} 2>&1; "
-              "rc=$?; echo \"--- cleanup exit rc=$rc ---\"; exit $rc"
+              f"{container} python3 /tmp/cleanup_sentinel_data.py {flag} > /tmp/cleanup.out 2>&1; "
+              "rc=$?; tail -n 80 /tmp/cleanup.out; "
+              "echo '--- CLEANUP_SUMMARY line ---'; grep CLEANUP_SUMMARY_JSON /tmp/cleanup.out || true; "
+              "echo \"--- cleanup exit rc=$rc ---\"; exit $rc"
           )
           payload = {
               "InstanceIds": [instance_id],

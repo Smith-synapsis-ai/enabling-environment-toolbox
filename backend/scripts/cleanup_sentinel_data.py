@@ -118,11 +118,13 @@ async def counts(db) -> dict[str, int]:
 
 
 async def main(apply: bool) -> None:
+    import json as _json
+
     async with AsyncSessionLocal() as db:
-        print("=== BEFORE counts ===")
+        print("=== BEFORE counts ===", flush=True)
         before = await counts(db)
         for k, v in before.items():
-            print(f"  {k}: {v}")
+            print(f"  {k}: {v}", flush=True)
 
         removed: dict[str, int] = {}
 
@@ -242,6 +244,17 @@ async def main(apply: bool) -> None:
         assert before["access_event (PROTECTED)"] == after["access_event (PROTECTED)"], (
             "access_event count changed — ABORT (this should be impossible)"
         )
+
+        # Compact one-line JSON summary FIRST-CLASS for log capture (SSM inline
+        # stdout is capped ~2.4 KB; this single line is small and survives).
+        summary = {
+            "mode": "APPLIED" if apply else "DRY_RUN",
+            "before": before,
+            "after": after,
+            "removed_nonzero": {k: v for k, v in removed.items() if v},
+            "removed_total": sum(removed.values()),
+        }
+        print("CLEANUP_SUMMARY_JSON " + _json.dumps(summary), flush=True)
 
 
 if __name__ == "__main__":
