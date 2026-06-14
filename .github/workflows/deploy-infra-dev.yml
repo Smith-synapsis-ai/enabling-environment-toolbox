@@ -32,6 +32,16 @@ name: Deploy Dev Infra
 
 on:
   workflow_dispatch:
+  # TEMPORARY: a workflow_dispatch-only workflow cannot be dispatched until it
+  # exists on the default branch (main). To run this one-time dev-infra setup
+  # from the develop branch without pushing to main, we add a narrowly-scoped
+  # push trigger keyed to this file's own path. This will be reverted to
+  # workflow_dispatch-only once the dev infra has been created.
+  push:
+    branches:
+      - develop
+    paths:
+      - ".github/workflows/deploy-infra-dev.yml"
 
 permissions:
   id-token: write
