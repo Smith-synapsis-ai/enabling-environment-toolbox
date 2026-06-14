@@ -74,7 +74,7 @@ export function AssistantPulseSurveyBanner({ sessionId, visible, onDismiss }: Pr
             className="absolute top-0 right-0 text-white/50 hover:text-white transition-colors"
             aria-label="Dismiss survey"
           >
-            <X size={18} />
+            <X size={18} aria-hidden="true" />
           </button>
 
           {thanks ? (
@@ -109,6 +109,7 @@ export function AssistantPulseSurveyBanner({ sessionId, visible, onDismiss }: Pr
                 onChange={e => setComment(e.target.value)}
                 placeholder="Any comments? (optional)"
                 rows={2}
+                aria-label="Any comments? (optional)"
                 className="w-full rounded-md bg-white/10 border border-white/15 text-white text-sm placeholder-white/40 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-cgiar-accent resize-none"
               />
 

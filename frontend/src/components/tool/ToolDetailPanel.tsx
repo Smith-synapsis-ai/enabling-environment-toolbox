@@ -99,10 +99,33 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
     scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Close on Escape key
+  // Close on Escape; focus-trap on Tab (WCAG 2.1.2 — no keyboard trap)
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') {
       onClose();
+      return;
+    }
+
+    // Keep Tab cycling within the modal so keyboard users cannot
+    // accidentally navigate into the inert page behind the dialog.
+    if (e.key === 'Tab' && modalRef.current) {
+      const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     }
   }, [onClose]);
 
@@ -204,7 +227,8 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
       className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4"
       role="dialog"
       aria-modal="true"
-      aria-label={tool ? `Tool details: ${tool.title}` : 'Tool details'}
+      aria-labelledby={tool ? 'tool-detail-title' : undefined}
+      aria-label={!tool ? 'Tool details' : undefined}
       ref={modalRef}
     >
       {/* Backdrop */}
@@ -254,7 +278,7 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
             <div className="p-6 sm:p-8">
               {/* Badge + title */}
               <TypeBadge type={tool.type} className="mb-3" />
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">{tool.title}</h2>
+              <h2 id="tool-detail-title" className="text-2xl font-bold text-gray-900 mb-2">{tool.title}</h2>
 
               {/* Metadata row */}
               <div className="flex flex-wrap gap-3 mb-6">
@@ -598,7 +622,7 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 mt-3 text-sm text-cgiar-accent hover:text-cgiar-green font-medium transition-colors"
                     >
-                      <ExternalLink size={14} />
+                      <ExternalLink size={14} aria-hidden="true" />
                       View original source
                     </a>
                   )}
@@ -629,16 +653,18 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
                           ? 'bg-cgiar-accent/10 text-cgiar-green'
                           : 'text-gray-500 hover:bg-gray-100'
                       }`}
+                      aria-label={isSaved ? 'Remove bookmark' : 'Bookmark this tool'}
                       title={isSaved ? 'Remove bookmark' : 'Bookmark this tool'}
                     >
-                      <Bookmark size={14} className={isSaved ? 'fill-current' : ''} />
+                      <Bookmark size={14} className={isSaved ? 'fill-current' : ''} aria-hidden="true" />
                       {isSaved ? 'Saved' : 'Save'}
                     </button>
                     <button
                       onClick={handleShare}
+                      aria-label={copied ? 'Link copied to clipboard' : 'Share: copy link to clipboard'}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 transition-colors"
                     >
-                      <Share2 size={14} />
+                      <Share2 size={14} aria-hidden="true" />
                       {copied ? 'Copied!' : 'Share'}
                     </button>
                   </div>
@@ -652,7 +678,7 @@ export default function ToolDetailPanel({ toolId, onClose, onToolViewed }: ToolD
                     rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-cgiar-green/10 border border-cgiar-green/20 text-cgiar-green hover:bg-cgiar-green/20 font-medium text-sm transition-colors"
                   >
-                    <ExternalLink size={15} />
+                    <ExternalLink size={15} aria-hidden="true" />
                     View Original Resource on CG Space
                   </a>
                 )}

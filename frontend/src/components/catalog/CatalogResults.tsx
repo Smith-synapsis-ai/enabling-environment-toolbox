@@ -36,9 +36,9 @@ export default function CatalogResults({ results, onToolClick }: CatalogResultsP
             {/* Content */}
             <div className="p-4">
               <TypeBadge type={tool.type} className="mb-2" />
-              <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 mb-2 group-hover:text-cgiar-accent transition-colors">
+              <h2 className="text-sm font-semibold text-gray-900 line-clamp-2 mb-2 group-hover:text-cgiar-accent transition-colors">
                 {tool.title}
-              </h3>
+              </h2>
               <p className="text-xs text-gray-500 line-clamp-3 mb-3">
                 {tool.summary}
               </p>

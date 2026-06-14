@@ -53,7 +53,12 @@ export default function ReportPanel({ draft, loading, flash, error }: ReportPane
       <div className="flex items-center gap-2 px-4 py-3 bg-cgiar-dark text-white shrink-0">
         <FileText size={16} className="text-cgiar-accent" aria-hidden="true" />
         <h2 className="text-sm font-semibold flex-1">Report draft</h2>
-        {loading && <RefreshCw size={14} className="animate-spin text-white/60" aria-label="refreshing" />}
+        {loading && (
+          <>
+            <span role="status" className="sr-only">Refreshing report…</span>
+            <RefreshCw size={14} className="animate-spin text-white/60" aria-hidden="true" />
+          </>
+        )}
         {draft && (
           <span
             className={`text-[11px] font-mono rounded-full px-2 py-0.5 border ${
@@ -70,11 +75,12 @@ export default function ReportPanel({ draft, loading, flash, error }: ReportPane
               disabled={!!exporting}
               className="flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-white"
               title="Download as PDF"
+              aria-label="Download report as PDF"
             >
               {exporting === 'pdf' ? (
-                <RefreshCw size={11} className="animate-spin" />
+                <RefreshCw size={11} className="animate-spin" aria-hidden="true" />
               ) : (
-                <Download size={11} />
+                <Download size={11} aria-hidden="true" />
               )}
               PDF
             </button>
@@ -83,11 +89,12 @@ export default function ReportPanel({ draft, loading, flash, error }: ReportPane
               disabled={!!exporting}
               className="flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-white"
               title="Download as Word document"
+              aria-label="Download report as Word document"
             >
               {exporting === 'docx' ? (
-                <RefreshCw size={11} className="animate-spin" />
+                <RefreshCw size={11} className="animate-spin" aria-hidden="true" />
               ) : (
-                <Download size={11} />
+                <Download size={11} aria-hidden="true" />
               )}
               Word
             </button>

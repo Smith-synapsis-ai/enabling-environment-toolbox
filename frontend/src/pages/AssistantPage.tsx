@@ -366,6 +366,7 @@ export default function AssistantPage() {
               {/* Mobile report toggle */}
               <button
                 onClick={() => setMobileView(v => (v === 'chat' ? 'report' : 'chat'))}
+                aria-label={mobileView === 'chat' ? 'Switch to report view' : 'Switch to chat view'}
                 className="lg:hidden inline-flex items-center gap-1.5 rounded-lg bg-white/10 border border-white/20 text-white text-xs font-medium px-3 py-1.5 hover:bg-white/20 transition-colors"
               >
                 {mobileView === 'chat' ? (

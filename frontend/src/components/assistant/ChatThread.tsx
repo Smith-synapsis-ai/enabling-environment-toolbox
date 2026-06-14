@@ -138,7 +138,7 @@ export default function ChatThread({ items, busy, onApprove, onRefine }: ChatThr
           case 'error':
             return (
               <div key={item.id} className="flex justify-start">
-                <div className="max-w-[90%] rounded-xl bg-red-500/15 border border-red-400/40 px-4 py-2.5 flex items-start gap-2">
+                <div role="alert" className="max-w-[90%] rounded-xl bg-red-500/15 border border-red-400/40 px-4 py-2.5 flex items-start gap-2">
                   <AlertTriangle size={15} className="text-red-300 mt-0.5 shrink-0" aria-hidden="true" />
                   <p className="text-sm text-red-100">{item.message}</p>
                 </div>

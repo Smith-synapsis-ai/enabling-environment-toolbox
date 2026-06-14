@@ -203,6 +203,7 @@ export default function ChatInput({
               : 'text-white/60 hover:text-white hover:bg-white/10',
           ].join(' ')}
           aria-label={listening ? 'Stop recording' : 'Record voice input'}
+          aria-pressed={listening}
           title={listening ? 'Stop recording' : 'Speak your challenge'}
         >
           {listening ? (
