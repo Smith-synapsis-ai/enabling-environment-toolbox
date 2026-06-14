@@ -124,7 +124,7 @@ Resources:
     Properties:
       DBInstanceIdentifier: !Sub 'ee-toolbox-${Environment}-db'
       Engine: postgres
-      EngineVersion: "16.6"
+      EngineVersion: "16.9"
       DBInstanceClass: !FindInMap [EnvironmentConfig, !Ref Environment, DBInstanceClass]
       AllocatedStorage: 20
       StorageType: gp3

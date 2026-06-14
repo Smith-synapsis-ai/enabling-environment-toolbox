@@ -153,6 +153,29 @@ jobs:
             --region "$AWS_REGION"
           echo "Dev secret $DEV_SECRET_NAME updated with API keys."
 
+      # ── Step 2b: Clean up dev database stack if in unrecoverable state ───────
+      # A stack in ROLLBACK_COMPLETE / *_FAILED cannot be updated and must be
+      # deleted before re-deploying. (Only touches the isolated dev DB stack.)
+      - name: Clean up failed dev database stack
+        run: |
+          STATUS=$(aws cloudformation describe-stacks \
+            --stack-name "$DEV_CF_DB_STACK" \
+            --region "$AWS_REGION" \
+            --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+          echo "Dev DB stack status: $STATUS"
+          case "$STATUS" in
+            ROLLBACK_COMPLETE|ROLLBACK_FAILED|CREATE_FAILED|DELETE_FAILED|UPDATE_ROLLBACK_FAILED)
+              echo "Stack $DEV_CF_DB_STACK is in unrecoverable state ($STATUS). Deleting before redeploy."
+              aws cloudformation delete-stack --stack-name "$DEV_CF_DB_STACK" --region "$AWS_REGION"
+              echo "Waiting for stack deletion to complete..."
+              aws cloudformation wait stack-delete-complete --stack-name "$DEV_CF_DB_STACK" --region "$AWS_REGION"
+              echo "Stack deleted. Proceeding with fresh deploy."
+              ;;
+            *)
+              echo "Stack is in a deployable state (or does not exist). Continuing."
+              ;;
+          esac
+
       # ── Step 3: Deploy dev database CF stack ─────────────────────────────────
       - name: Deploy dev database stack (ee-toolbox-dev-database)
         run: |
