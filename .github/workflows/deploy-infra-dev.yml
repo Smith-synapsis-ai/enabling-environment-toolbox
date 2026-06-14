@@ -350,12 +350,14 @@ jobs:
       - name: Update Route53 dev-api DNS record
         run: |
           echo "Reading dev ALB DNS info from CF outputs..."
-          DEV_ALB_DNS=$(aws cloudformation describe-stacks \
+          # Export so the python heredoc can read them via os.environ.
+          # (Trailing KEY=val after `python3 -c` are argv, not env vars.)
+          export DEV_ALB_DNS=$(aws cloudformation describe-stacks \
             --stack-name "$DEV_CF_APP_STACK" \
             --region "$AWS_REGION" \
             --query 'Stacks[0].Outputs[?OutputKey==`ALBDnsName`].OutputValue' \
             --output text)
-          DEV_ALB_ZONE=$(aws cloudformation describe-stacks \
+          export DEV_ALB_ZONE=$(aws cloudformation describe-stacks \
             --stack-name "$DEV_CF_APP_STACK" \
             --region "$AWS_REGION" \
             --query 'Stacks[0].Outputs[?OutputKey==`ALBCanonicalHostedZoneID`].OutputValue' \
@@ -379,7 +381,7 @@ jobs:
                   }
               }]
           }))
-          " DEV_ALB_ZONE="$DEV_ALB_ZONE" DEV_ALB_DNS="$DEV_ALB_DNS")
+          ")
 
           aws route53 change-resource-record-sets \
             --hosted-zone-id "$HOSTED_ZONE_ID" \
