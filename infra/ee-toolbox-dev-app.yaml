@@ -140,6 +140,11 @@ Resources:
           ToPort: 80
           CidrIp: 0.0.0.0/0
           Description: HTTP (package repos)
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 0.0.0.0/0
+          Description: PostgreSQL to RDS (dev database in same VPC)
       Tags:
         - Key: Name
           Value: ee-toolbox-dev-ec2-sg
@@ -211,7 +216,7 @@ Resources:
                 Resource:
                   - "arn:aws:s3:::ee-toolbox-retrieval-207258148366"
                   - "arn:aws:s3:::ee-toolbox-retrieval-207258148366/*"
-              # CloudWatch Logs
+              # CloudWatch Logs — must match the log group used by docker --log-driver awslogs
               - Sid: CloudWatchLogs
                 Effect: Allow
                 Action:
@@ -219,7 +224,9 @@ Resources:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                   - logs:DescribeLogStreams
-                Resource: !Sub "arn:aws:logs:eu-central-1:${AWS::AccountId}:log-group:/ee-toolbox/*"
+                Resource:
+                  - !Sub "arn:aws:logs:eu-central-1:${AWS::AccountId}:log-group:/ecs/ee-toolbox-dev-backend"
+                  - !Sub "arn:aws:logs:eu-central-1:${AWS::AccountId}:log-group:/ecs/ee-toolbox-dev-backend:*"
       Tags:
         - Key: Project
           Value: ee-toolbox
@@ -304,6 +311,10 @@ Resources:
               --name ee-toolbox-backend \
               --restart unless-stopped \
               -p 8099:8099 \
+              --log-driver awslogs \
+              --log-opt awslogs-region=${AWS::Region} \
+              --log-opt awslogs-group=/ecs/ee-toolbox-dev-backend \
+              --log-opt awslogs-stream-prefix=backend \
               -e EE_RETRIEVAL_S3=${EERetrievalS3} \
               -e EE_SECRET_NAME=ee-toolbox-dev-api-keys \
               -e LITESTREAM_S3_PATH=s3://ee-toolbox-dev-sessions-${AWS::AccountId}/agent_store \
@@ -365,6 +376,9 @@ Resources:
         PredefinedMetricSpecification:
           PredefinedMetricType: ASGAverageCPUUtilization
         TargetValue: 70.0
+        # Prevent auto-scale-in to zero. Dev environment should stay up while
+        # desired >= 1. Scale to zero manually (set ASG desired=0) when idle.
+        DisableScaleIn: true
 
   # ---------------------------------------------------------------------------
   # Application Load Balancer (dev-specific name, isolated from prod)
