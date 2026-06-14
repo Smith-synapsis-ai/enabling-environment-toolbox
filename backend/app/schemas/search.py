@@ -26,6 +26,7 @@ class ToolSearchResult(BaseModel):
     """A single tool result with similarity score."""
 
     id: uuid.UUID
+    cgspace_id: str | None = None
     title: str
     summary: str | None = None
     what_it_does: str | None = None

@@ -70,7 +70,7 @@ async def semantic_search(
     result = await db.execute(
         text(
             """
-            SELECT id, title, summary, what_it_does, when_to_use_it,
+            SELECT id, cgspace_id, title, summary, what_it_does, when_to_use_it,
                    who_its_for, pillars, domains, type, stage,
                    target_users, geography, source_url, cover_image_url,
                    average_rating, rating_count,
@@ -94,6 +94,7 @@ async def semantic_search(
         results.append(
             ToolSearchResult(
                 id=row["id"],
+                cgspace_id=row["cgspace_id"],
                 title=row["title"],
                 summary=row["summary"],
                 what_it_does=row["what_it_does"],
@@ -216,7 +217,7 @@ async def _catalog_search_impl(
     # ---- Paginated results ----
     offset = (body.page - 1) * body.page_size
     results_sql = f"""
-        SELECT id, title, summary, what_it_does, when_to_use_it,
+        SELECT id, cgspace_id, title, summary, what_it_does, when_to_use_it,
                who_its_for, pillars, domains, type, stage,
                target_users, geography, source_url, cover_image_url,
                average_rating, rating_count
@@ -235,6 +236,7 @@ async def _catalog_search_impl(
         results.append(
             ToolSearchResult(
                 id=row["id"],
+                cgspace_id=row["cgspace_id"],
                 title=row["title"],
                 summary=row["summary"],
                 what_it_does=row["what_it_does"],

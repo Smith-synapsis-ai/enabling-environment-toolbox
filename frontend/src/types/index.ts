@@ -34,6 +34,7 @@ export interface ChatMessage {
 
 export interface ToolSearchResult {
   id: string;
+  cgspace_id: string | null;
   title: string;
   summary: string;
   what_it_does: string;
