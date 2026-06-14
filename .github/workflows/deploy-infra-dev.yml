@@ -228,8 +228,10 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          DATABASE_URL="postgresql+asyncpg://${DB_USER}:${DEV_DB_PASSWORD}@${DEV_DB_HOST}:${DB_PORT}/${DB_NAME}"
-          DATABASE_URL_SYNC="postgresql://${DB_USER}:${DEV_DB_PASSWORD}@${DEV_DB_HOST}:${DB_PORT}/${DB_NAME}"
+          # Export so the python heredoc can read them via os.environ.
+          # (Trailing KEY=val after `python3 -c` are argv, not env vars.)
+          export DATABASE_URL="postgresql+asyncpg://${DB_USER}:${DEV_DB_PASSWORD}@${DEV_DB_HOST}:${DB_PORT}/${DB_NAME}"
+          export DATABASE_URL_SYNC="postgresql://${DB_USER}:${DEV_DB_PASSWORD}@${DEV_DB_HOST}:${DB_PORT}/${DB_NAME}"
 
           echo "Updating $DEV_SECRET_NAME with all 4 keys including DATABASE_URL"
           PAYLOAD=$(python3 -c "
@@ -241,7 +243,7 @@ jobs:
               'DATABASE_URL_SYNC':  os.environ['DATABASE_URL_SYNC'],
           }
           print(json.dumps(d))
-          " DATABASE_URL="$DATABASE_URL" DATABASE_URL_SYNC="$DATABASE_URL_SYNC")
+          ")
 
           aws secretsmanager put-secret-value \
             --secret-id "$DEV_SECRET_NAME" \
