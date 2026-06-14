@@ -190,6 +190,26 @@ export interface BrokenLinksData {
 }
 
 // ---------------------------------------------------------------------------
+// Admin authentication
+// ---------------------------------------------------------------------------
+
+export async function adminLogin(
+  username: string,
+  password: string,
+): Promise<{ token: string }> {
+  const response = await fetch(`${API_BASE}/api/admin/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => 'Login failed');
+    throw new Error(errorText);
+  }
+  return response.json();
+}
+
+// ---------------------------------------------------------------------------
 // API functions
 // ---------------------------------------------------------------------------
 

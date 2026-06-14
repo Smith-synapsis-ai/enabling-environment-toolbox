@@ -10,12 +10,12 @@ import {
   Image as ImageIcon,
 } from 'lucide-react';
 import {
-  adminLogin,
   fetchAdminTools,
   createTool,
   updateTool,
   deleteTool,
 } from '../services/api';
+import { adminLogin } from '../services/analytics';
 import type { ToolDetail, ToolCreate, AdminToolsResponse } from '../types';
 import { PILLARS, DOMAINS, TYPES, STAGES, TARGET_USERS, GEOGRAPHIES } from '../types';
 import AnalyticsDashboard from '../components/admin/AnalyticsDashboard';
