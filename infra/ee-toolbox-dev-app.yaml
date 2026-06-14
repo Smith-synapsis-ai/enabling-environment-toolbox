@@ -217,17 +217,28 @@ Resources:
                   - "arn:aws:s3:::ee-toolbox-retrieval-207258148366"
                   - "arn:aws:s3:::ee-toolbox-retrieval-207258148366/*"
               # CloudWatch Logs — must match the log group used by docker --log-driver awslogs
-              - Sid: CloudWatchLogs
+              # and the CW agent that streams the userdata log for diagnostics.
+              - Sid: CloudWatchLogsWrite
                 Effect: Allow
                 Action:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                   - logs:DescribeLogStreams
-                  - logs:DescribeLogGroups
                 Resource:
                   - !Sub "arn:aws:logs:eu-central-1:${AWS::AccountId}:log-group:/ecs/ee-toolbox-dev-backend"
                   - !Sub "arn:aws:logs:eu-central-1:${AWS::AccountId}:log-group:/ecs/ee-toolbox-dev-backend:*"
+                  - !Sub "arn:aws:logs:eu-central-1:${AWS::AccountId}:log-group:/ec2/ee-toolbox-dev-userdata"
+                  - !Sub "arn:aws:logs:eu-central-1:${AWS::AccountId}:log-group:/ec2/ee-toolbox-dev-userdata:*"
+              # DescribeLogGroups is a list/account-level API — MUST use resource: "*"
+              # Docker awslogs driver calls DescribeLogGroups(logGroupNamePrefix=...) to
+              # verify the log group before creating a stream. Scoping to a specific
+              # log-group ARN causes silent auth failure in IAM evaluation.
+              - Sid: CloudWatchLogsDescribeGroups
+                Effect: Allow
+                Action:
+                  - logs:DescribeLogGroups
+                Resource: "*"
       Tags:
         - Key: Project
           Value: ee-toolbox
@@ -295,6 +306,34 @@ Resources:
             systemctl enable --now docker
             usermod -aG docker ec2-user
 
+            # Install amazon-cloudwatch-agent to stream this log file to CW
+            # so the full userdata output is readable without SSM access.
+            log "Installing amazon-cloudwatch-agent for userdata log streaming"
+            dnf install -y amazon-cloudwatch-agent || log "WARNING: CW agent install failed (non-fatal)"
+            cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << 'CWEOF'
+{
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/ee-toolbox-userdata.log",
+            "log_group_name": "/ec2/ee-toolbox-dev-userdata",
+            "log_stream_name": "{instance_id}",
+            "auto_removal": false
+          }
+        ]
+      }
+    }
+  }
+}
+CWEOF
+            /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+              -a fetch-config -m ec2 -s \
+              -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json \
+              || log "WARNING: CW agent start failed (non-fatal)"
+            log "CloudWatch agent started — userdata log streaming to /ec2/ee-toolbox-dev-userdata"
+
             # ECR login
             log "ECR login"
             aws ecr get-login-password --region ${AWS::Region} | \
@@ -309,7 +348,7 @@ Resources:
 
             # Run container — uses DEV-specific secret and Litestream bucket
             log "Starting container"
-            docker run -d \
+            if docker run -d \
               --name ee-toolbox-backend \
               --restart unless-stopped \
               -p 8099:8099 \
@@ -324,10 +363,23 @@ Resources:
               -e THUMBNAILS_BUCKET=ee-toolbox-thumbnails-${AWS::AccountId} \
               -e AWS_DEFAULT_REGION=${AWS::Region} \
               -v /var/log/ee-toolbox:/var/log/ee-toolbox \
-              ${ImageUri}
-
-            log "=== DEV Container started successfully ==="
-            echo "DEV container started at $(date -u)" >> /var/log/ee-toolbox-startup.log
+              ${ImageUri}; then
+              log "=== DEV Container started successfully ==="
+              echo "DEV container started at $(date -u)" >> /var/log/ee-toolbox-startup.log
+            else
+              DOCKER_EXIT=$?
+              log "FATAL: docker run failed with exit code $DOCKER_EXIT"
+              log "--- docker info ---"
+              docker info 2>&1 || true
+              log "--- docker images ---"
+              docker images 2>&1 || true
+              log "--- docker ps -a ---"
+              docker ps -a 2>&1 || true
+              log "--- checking CW Logs IAM ---"
+              aws logs describe-log-groups \
+                --log-group-name-prefix /ecs/ee-toolbox-dev \
+                --region ${AWS::Region} 2>&1 || log "DescribeLogGroups failed (IAM issue?)"
+            fi
         TagSpecifications:
           - ResourceType: instance
             Tags:
