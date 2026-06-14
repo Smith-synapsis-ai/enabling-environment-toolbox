@@ -1,0 +1,228 @@
+name: Deploy Dev Backend
+
+# ==============================================================================
+# Builds the backend Docker image from the develop branch and deploys it to
+# the dev ASG (ee-toolbox-dev). Mirrors deploy-backend.yml but targets the
+# dev environment exclusively — production is never touched.
+#
+# Triggers:
+#   - Push to 'develop' branch (backend/pipeline/Dockerfile paths)
+#   - Manual workflow_dispatch
+#
+# Isolation guarantees:
+#   - Pushes image as :develop tag (prod uses :latest — different tags)
+#   - Reads from ee-toolbox-dev-db-credentials (not mgmt)
+#   - Writes to ee-toolbox-dev-api-keys (not ee-toolbox-api-keys)
+#   - Refreshes ee-toolbox-dev ASG (not ee-toolbox-mgmt)
+# ==============================================================================
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - "backend/**"
+      - "pipeline/**"
+      - "Dockerfile"
+      - ".dockerignore"
+      - "litestream.yml"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-dev-backend
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy-dev:
+    runs-on: ubuntu-latest
+    environment: mgmt
+    env:
+      AWS_REGION: eu-central-1
+      ACCOUNT_ID: "919959486181"
+      ECR_REPOSITORY: ee-toolbox-backend
+      DEV_ASG_NAME: ee-toolbox-dev
+      DEV_SECRET_NAME: ee-toolbox-dev-api-keys
+      DEV_DB_CREDS_SECRET: ee-toolbox-dev-db-credentials
+      # Dev DB connection details (read endpoint from CF stack output)
+      DEV_CF_DB_STACK: ee-toolbox-dev-database
+      DB_USER: eetoolbox
+      DB_NAME: ee_toolbox
+      DB_PORT: "5432"
+      PROD_HEALTH_URL: https://api-ee-toolbox.synapsis-analytics.com/health
+
+    steps:
+      # ── Step 0: Verify production is healthy BEFORE touching anything ────────
+      - name: "[PRE] Verify production health"
+        run: |
+          echo "=== PRE-DEPLOY: Verifying production health ==="
+          HEALTH=$(curl -sf "$PROD_HEALTH_URL" || echo '{"status":"ERROR"}')
+          echo "Health: $HEALTH"
+          DB_STATUS=$(echo "$HEALTH" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('database','MISSING'))" 2>/dev/null || echo "PARSE_ERROR")
+          if [ "$DB_STATUS" != "connected" ]; then
+            echo "FATAL: Production database not connected (got: $DB_STATUS). Aborting."
+            exit 1
+          fi
+          echo "Production healthy. Deploying to dev."
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # ── Step 1: Build and push image as :develop and :<sha> ─────────────────
+      - name: Build and push Docker image (develop tag)
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          DEV_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:develop"
+          SHA_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          echo "Building image..."
+          docker build \
+            -t "$DEV_IMAGE" \
+            -t "$SHA_IMAGE" \
+            .
+          echo "Pushing :develop tag..."
+          docker push "$DEV_IMAGE"
+          echo "Pushing :$IMAGE_TAG tag..."
+          docker push "$SHA_IMAGE"
+          echo "Pushed $DEV_IMAGE and $SHA_IMAGE"
+          echo "DEV_IMAGE_URI=$DEV_IMAGE" >> "$GITHUB_ENV"
+
+      # ── Step 2: Read dev DB endpoint + build DATABASE_URL ───────────────────
+      - name: Read dev RDS endpoint and update dev secret
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          echo "Reading dev DB endpoint from CF stack: $DEV_CF_DB_STACK"
+          DB_HOST=$(aws cloudformation describe-stacks \
+            --stack-name "$DEV_CF_DB_STACK" \
+            --region "$AWS_REGION" \
+            --query 'Stacks[0].Outputs[?OutputKey==`DBEndpoint`].OutputValue' \
+            --output text)
+
+          if [ -z "$DB_HOST" ] || [ "$DB_HOST" = "None" ]; then
+            echo "WARNING: Could not read dev DB endpoint. Has deploy-infra-dev.yml been run?"
+            echo "Updating $DEV_SECRET_NAME with API keys only (no DATABASE_URL)."
+            PAYLOAD=$(python3 -c "
+          import json, os
+          d = {
+              'ANTHROPIC_API_KEY': os.environ['ANTHROPIC_API_KEY'],
+              'OPENAI_API_KEY':    os.environ['OPENAI_API_KEY'],
+          }
+          print(json.dumps(d))
+          ")
+          else
+            echo "Dev DB host: $DB_HOST"
+            echo "Reading dev DB credentials from: $DEV_DB_CREDS_SECRET"
+            DB_CREDS_JSON=$(aws secretsmanager get-secret-value \
+              --secret-id "$DEV_DB_CREDS_SECRET" \
+              --region "$AWS_REGION" \
+              --query 'SecretString' --output text)
+            DB_PASSWORD=$(echo "$DB_CREDS_JSON" | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          pw = d.get('password') or d.get('Password') or d.get('PGPASSWORD') or ''
+          if not pw:
+              print('ERROR: password key not found', file=sys.stderr)
+              sys.exit(1)
+          print(pw, end='')
+          ")
+            DATABASE_URL="postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+            DATABASE_URL_SYNC="postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+
+            PAYLOAD=$(python3 -c "
+          import json, os
+          d = {
+              'ANTHROPIC_API_KEY':  os.environ['ANTHROPIC_API_KEY'],
+              'OPENAI_API_KEY':     os.environ['OPENAI_API_KEY'],
+              'DATABASE_URL':       os.environ['DATABASE_URL'],
+              'DATABASE_URL_SYNC':  os.environ['DATABASE_URL_SYNC'],
+          }
+          print(json.dumps(d))
+          " DATABASE_URL="$DATABASE_URL" DATABASE_URL_SYNC="$DATABASE_URL_SYNC")
+          fi
+
+          echo "Writing $DEV_SECRET_NAME..."
+          aws secretsmanager put-secret-value \
+            --secret-id "$DEV_SECRET_NAME" \
+            --secret-string "$PAYLOAD" \
+            --region "$AWS_REGION"
+
+          aws secretsmanager get-secret-value \
+            --secret-id "$DEV_SECRET_NAME" --region "$AWS_REGION" \
+            --query 'SecretString' --output text \
+          | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          print('ANTHROPIC_API_KEY present:', bool(d.get('ANTHROPIC_API_KEY')))
+          print('OPENAI_API_KEY present:   ', bool(d.get('OPENAI_API_KEY')))
+          print('DATABASE_URL present:     ', bool(d.get('DATABASE_URL')))
+          print('DATABASE_URL_SYNC present:', bool(d.get('DATABASE_URL_SYNC')))
+          "
+
+      # ── Step 3: Start dev ASG instance refresh ───────────────────────────────
+      - name: Start dev ASG instance refresh
+        run: |
+          echo "Starting instance refresh on: $DEV_ASG_NAME"
+          REFRESH_ID=$(aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name "$DEV_ASG_NAME" \
+            --preferences '{"MinHealthyPercentage":0,"InstanceWarmup":300}' \
+            --region "$AWS_REGION" \
+            --query 'InstanceRefreshId' --output text)
+          echo "Instance refresh started: $REFRESH_ID"
+          echo "REFRESH_ID=$REFRESH_ID" >> "$GITHUB_ENV"
+
+      # ── Step 4: Wait for dev ASG instance refresh ────────────────────────────
+      - name: Wait for dev instance refresh
+        run: |
+          for i in $(seq 1 40); do
+            STATUS=$(aws autoscaling describe-instance-refreshes \
+              --auto-scaling-group-name "$DEV_ASG_NAME" \
+              --instance-refresh-ids "$REFRESH_ID" \
+              --region "$AWS_REGION" \
+              --query 'InstanceRefreshes[0].Status' --output text)
+            echo "[$i/40] Dev instance refresh status: $STATUS"
+            case "$STATUS" in
+              Successful)
+                echo "Dev instance refresh completed successfully."
+                break
+                ;;
+              Failed|Cancelled)
+                echo "Dev instance refresh ended with status: $STATUS"
+                exit 1
+                ;;
+            esac
+            sleep 30
+          done
+
+      # ── Step 5: Verify production is STILL healthy ───────────────────────────
+      - name: "[POST] Verify production health unchanged"
+        run: |
+          echo "=== POST-DEPLOY: Verifying production health ==="
+          HEALTH=$(curl -sf "$PROD_HEALTH_URL" || echo '{"status":"ERROR"}')
+          echo "Health: $HEALTH"
+          DB_STATUS=$(echo "$HEALTH" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('database','MISSING'))" 2>/dev/null || echo "PARSE_ERROR")
+          if [ "$DB_STATUS" != "connected" ]; then
+            echo "WARNING: Production database status changed to: $DB_STATUS"
+            exit 1
+          fi
+          echo "Production health confirmed unchanged: database=$DB_STATUS"
+          echo ""
+          echo "=== DEV BACKEND DEPLOY COMPLETE ==="
+          echo "Image deployed: $DEV_IMAGE_URI"
+          echo "ASG: $DEV_ASG_NAME"
+          echo "Health check: https://dev-api-ee-toolbox.synapsis-analytics.com/health"

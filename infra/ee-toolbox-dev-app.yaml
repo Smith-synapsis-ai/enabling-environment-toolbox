@@ -1,0 +1,497 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  EE Toolbox - Dev Application stack.
+  Mirrors the production ee-toolbox-app stack but with fully isolated resource
+  names so production is never touched. Key differences from the prod template:
+    - ALB: ee-toolbox-dev-alb (vs ee-toolbox-alb)
+    - SGs: ee-toolbox-dev-alb-sg / ee-toolbox-dev-ec2-sg
+    - Secret: ee-toolbox-dev-api-keys (vs ee-toolbox-api-keys)
+    - Litestream bucket: ee-toolbox-dev-sessions-<AccountId>
+    - Instance type: t3.small (vs r6i.large)
+    - Min/Max/Desired: 0/2/1 (supports scale-to-zero)
+    - ECR image tag: develop (vs latest)
+    - CF Export names: ee-toolbox-dev-* prefix
+    - ECR IAM resource: ee-toolbox-backend (actual repo name, no env prefix)
+
+# =============================================================================
+# Parameters
+# =============================================================================
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    Description: Deployment environment (always dev for this template)
+
+  VpcId:
+    Type: String
+    Default: vpc-024b5db1d38ced3a7
+    Description: VPC for all resources (same VPC as production)
+
+  SubnetIds:
+    Type: CommaDelimitedList
+    Default: "subnet-04fab9f22fe889781,subnet-0e77bf3abe86ca9db,subnet-04e0659a8cfefb1b5"
+    Description: Public subnets across AZs (eu-central-1a/b/c)
+
+  CertificateArn:
+    Type: String
+    Default: "arn:aws:acm:eu-central-1:919959486181:certificate/4d7e0a95-d953-4374-8b53-b5a94839180e"
+    Description: >-
+      ACM wildcard certificate ARN (*.synapsis-analytics.com) covers
+      dev-api-ee-toolbox.synapsis-analytics.com automatically.
+
+  ImageUri:
+    Type: String
+    Description: Full Docker image URI to run (ECR repo + develop tag)
+
+  EERetrievalS3:
+    Type: String
+    Default: "s3://ee-toolbox-retrieval-207258148366"
+    Description: S3 base URI for retrieval artifacts (shared read-only with prod)
+
+# =============================================================================
+# Conditions
+# =============================================================================
+Conditions:
+  HasCert: !Not [!Equals [!Ref CertificateArn, ""]]
+
+# =============================================================================
+# Resources
+# =============================================================================
+Resources:
+
+  # ---------------------------------------------------------------------------
+  # NOTE: Secret and S3 bucket are created out-of-band by deploy-infra-dev.yml
+  # before this stack deploys (same pattern as prod to avoid CF ROLLBACK cycles).
+  #   Secret:  ee-toolbox-dev-api-keys
+  #   Bucket:  ee-toolbox-dev-sessions-<AccountId>
+  # ---------------------------------------------------------------------------
+
+  # ---------------------------------------------------------------------------
+  # CloudWatch Log Group (separate from prod /ecs/ee-toolbox-backend)
+  # ---------------------------------------------------------------------------
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/ee-toolbox-dev-backend
+      RetentionInDays: 14
+
+  # ---------------------------------------------------------------------------
+  # Security Group - ALB (dev-specific name, isolated from prod)
+  # ---------------------------------------------------------------------------
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: ee-toolbox-dev-alb-sg
+      GroupDescription: Security group for EE Toolbox Dev ALB
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS from anywhere
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP from anywhere (redirects to HTTPS)
+      Tags:
+        - Key: Name
+          Value: ee-toolbox-dev-alb-sg
+        - Key: Project
+          Value: ee-toolbox
+        - Key: Environment
+          Value: dev
+
+  # Explicit egress rule ALB -> EC2 instances on 8099 (avoids circular dependency)
+  ALBEgressToEC2:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !GetAtt ALBSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: 8099
+      ToPort: 8099
+      DestinationSecurityGroupId: !GetAtt EC2SecurityGroup.GroupId
+      Description: Traffic and health checks to dev backend instances
+
+  # ---------------------------------------------------------------------------
+  # Security Group - EC2 instances (dev-specific name, isolated from prod)
+  # ---------------------------------------------------------------------------
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: ee-toolbox-dev-ec2-sg
+      GroupDescription: EE Toolbox Dev EC2 instances
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8099
+          ToPort: 8099
+          SourceSecurityGroupId: !GetAtt ALBSecurityGroup.GroupId
+          Description: Traffic from dev ALB only
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS (ECR, S3, Secrets Manager, Anthropic/OpenAI APIs)
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP (package repos)
+      Tags:
+        - Key: Name
+          Value: ee-toolbox-dev-ec2-sg
+        - Key: Project
+          Value: ee-toolbox
+        - Key: Environment
+          Value: dev
+
+  # ---------------------------------------------------------------------------
+  # IAM - EC2 Instance Role + Profile
+  # ---------------------------------------------------------------------------
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+      Policies:
+        - PolicyName: EEToolboxDevEC2Policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # Secrets Manager - read dev API keys (isolated from prod secret)
+              - Sid: SecretsManagerRead
+                Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Sub "arn:aws:secretsmanager:eu-central-1:${AWS::AccountId}:secret:ee-toolbox-dev-api-keys-*"
+              # ECR - pull images (auth token is account-wide)
+              - Sid: ECRRead
+                Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                Resource: "*"
+              # ECR - pull from the shared ee-toolbox-backend repo (actual repo name,
+              # no env prefix — the prod template has a bug here referencing
+              # ee-toolbox-${Environment}-backend which doesn't match the real repo)
+              - Sid: ECRPull
+                Effect: Allow
+                Action:
+                  - ecr:BatchGetImage
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchCheckLayerAvailability
+                Resource: !Sub "arn:aws:ecr:eu-central-1:${AWS::AccountId}:repository/ee-toolbox-backend"
+              # S3 - Litestream replication (dev-specific bucket, isolated from prod)
+              - Sid: LitestreamS3
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub "arn:aws:s3:::ee-toolbox-dev-sessions-${AWS::AccountId}"
+                  - !Sub "arn:aws:s3:::ee-toolbox-dev-sessions-${AWS::AccountId}/*"
+              # S3 - read retrieval artifacts (shared read-only bucket in ai-prod)
+              - Sid: RetrievalS3Read
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource:
+                  - "arn:aws:s3:::ee-toolbox-retrieval-207258148366"
+                  - "arn:aws:s3:::ee-toolbox-retrieval-207258148366/*"
+              # CloudWatch Logs
+              - Sid: CloudWatchLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogStreams
+                Resource: !Sub "arn:aws:logs:eu-central-1:${AWS::AccountId}:log-group:/ee-toolbox/*"
+      Tags:
+        - Key: Project
+          Value: ee-toolbox
+        - Key: Environment
+          Value: dev
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref EC2InstanceRole
+
+  # ---------------------------------------------------------------------------
+  # Launch Template
+  # AMI: al2023-ami-2023.12.20260608.0-kernel-6.1-x86_64 (eu-central-1)
+  # t3.small: 2 vCPU / 2 GB RAM — sufficient for dev/test traffic.
+  # IMDS hop limit 2 allows Docker (bridge network) to reach instance metadata.
+  # ---------------------------------------------------------------------------
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub "ee-toolbox-${Environment}"
+      LaunchTemplateData:
+        ImageId: ami-0c8ab82f51d47e1be
+        InstanceType: t3.small
+        IamInstanceProfile:
+          Arn: !GetAtt EC2InstanceProfile.Arn
+        SecurityGroupIds:
+          - !GetAtt EC2SecurityGroup.GroupId
+        MetadataOptions:
+          HttpTokens: required
+          HttpPutResponseHopLimit: 2
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs:
+              VolumeSize: 30
+              VolumeType: gp3
+              DeleteOnTermination: true
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            # NOTE: No set -euo pipefail here — cloud-init marks scripts-user FAILED
+            # on any non-zero exit, preventing Docker container from starting.
+            exec > /var/log/ee-toolbox-userdata.log 2>&1
+
+            log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $*"; }
+
+            log "=== EE Toolbox DEV userdata starting ==="
+
+            # Install Docker (awscli v2 is preinstalled on AL2023).
+            for attempt in 1 2 3 4; do
+              log "dnf install docker - attempt $attempt"
+              dnf install -y docker && break
+              log "dnf install failed (attempt $attempt), sleeping 20s ..."
+              sleep 20
+            done
+
+            if ! command -v docker &>/dev/null; then
+              log "FATAL: docker not installed after 4 attempts - aborting"
+              exit 1
+            fi
+
+            log "Docker installed, enabling service"
+            systemctl enable --now docker
+            usermod -aG docker ec2-user
+
+            # ECR login
+            log "ECR login"
+            aws ecr get-login-password --region ${AWS::Region} | \
+              docker login --username AWS --password-stdin \
+              ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com
+
+            # Pull image (develop tag)
+            log "Pulling image ${ImageUri}"
+            docker pull ${ImageUri}
+
+            mkdir -p /var/log/ee-toolbox
+
+            # Run container — uses DEV-specific secret and Litestream bucket
+            log "Starting container"
+            docker run -d \
+              --name ee-toolbox-backend \
+              --restart unless-stopped \
+              -p 8099:8099 \
+              -e EE_RETRIEVAL_S3=${EERetrievalS3} \
+              -e EE_SECRET_NAME=ee-toolbox-dev-api-keys \
+              -e LITESTREAM_S3_PATH=s3://ee-toolbox-dev-sessions-${AWS::AccountId}/agent_store \
+              -e THUMBNAILS_BUCKET=ee-toolbox-thumbnails-${AWS::AccountId} \
+              -e AWS_DEFAULT_REGION=${AWS::Region} \
+              -v /var/log/ee-toolbox:/var/log/ee-toolbox \
+              ${ImageUri}
+
+            log "=== DEV Container started successfully ==="
+            echo "DEV container started at $(date -u)" >> /var/log/ee-toolbox-startup.log
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub "ee-toolbox-${Environment}"
+              - Key: Environment
+                Value: !Ref Environment
+              - Key: Project
+                Value: ee-toolbox
+
+  # ---------------------------------------------------------------------------
+  # Auto Scaling Group
+  # MinSize=0 allows scale-to-zero when not in use (cost saving).
+  # ---------------------------------------------------------------------------
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    DependsOn:
+      - HTTPListener
+    Properties:
+      AutoScalingGroupName: !Sub "ee-toolbox-${Environment}"
+      MinSize: "0"
+      MaxSize: "2"
+      DesiredCapacity: "1"
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: 1200
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+      TargetGroupARNs:
+        - !Ref TargetGroup
+      VPCZoneIdentifier: !Ref SubnetIds
+      Tags:
+        - Key: Name
+          Value: !Sub "ee-toolbox-${Environment}"
+          PropagateAtLaunch: true
+        - Key: Environment
+          Value: !Ref Environment
+          PropagateAtLaunch: true
+
+  # ---------------------------------------------------------------------------
+  # Scaling Policy - CPU target tracking
+  # ---------------------------------------------------------------------------
+  ScalingPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref AutoScalingGroup
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ASGAverageCPUUtilization
+        TargetValue: 70.0
+
+  # ---------------------------------------------------------------------------
+  # Application Load Balancer (dev-specific name, isolated from prod)
+  # ---------------------------------------------------------------------------
+  ALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: ee-toolbox-dev-alb
+      Scheme: internet-facing
+      Type: application
+      Subnets: !Ref SubnetIds
+      SecurityGroups:
+        - !GetAtt ALBSecurityGroup.GroupId
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: "3600"
+      Tags:
+        - Key: Project
+          Value: ee-toolbox
+        - Key: Environment
+          Value: dev
+
+  # ---------------------------------------------------------------------------
+  # Target Group (no explicit name — lets CF handle replacement without conflicts)
+  # ---------------------------------------------------------------------------
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Port: 8099
+      Protocol: HTTP
+      TargetType: instance
+      VpcId: !Ref VpcId
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: /health
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 5
+      Matcher:
+        HttpCode: "200"
+      TargetGroupAttributes:
+        - Key: stickiness.enabled
+          Value: "true"
+        - Key: stickiness.type
+          Value: lb_cookie
+        - Key: stickiness.lb_cookie.duration_seconds
+          Value: "86400"
+      Tags:
+        - Key: Project
+          Value: ee-toolbox
+        - Key: Environment
+          Value: dev
+
+  # ---------------------------------------------------------------------------
+  # HTTPS Listener (443)
+  # ---------------------------------------------------------------------------
+  HTTPSListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: HasCert
+    Properties:
+      LoadBalancerArn: !Ref ALB
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref CertificateArn
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+  # ---------------------------------------------------------------------------
+  # HTTP Listener (80) - redirect to HTTPS
+  # ---------------------------------------------------------------------------
+  HTTPListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ALB
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: redirect
+          RedirectConfig:
+            Protocol: HTTPS
+            Port: "443"
+            StatusCode: HTTP_301
+
+# =============================================================================
+# Outputs (all export names prefixed with ee-toolbox-dev- to avoid conflicts)
+# =============================================================================
+Outputs:
+  ALBDnsName:
+    Description: Dev ALB DNS name
+    Value: !GetAtt ALB.DNSName
+    Export:
+      Name: ee-toolbox-dev-ALBDnsName
+
+  ALBCanonicalHostedZoneID:
+    Description: Dev ALB canonical hosted zone ID (for Route53 alias records)
+    Value: !GetAtt ALB.CanonicalHostedZoneID
+    Export:
+      Name: ee-toolbox-dev-ALBCanonicalHostedZoneID
+
+  APIUrl:
+    Description: Dev backend API URL
+    Value: "https://dev-api-ee-toolbox.synapsis-analytics.com"
+    Export:
+      Name: ee-toolbox-dev-APIUrl
+
+  ECRRepositoryUri:
+    Description: ECR repository URI (shared with prod, dev uses :develop tag)
+    Value: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/ee-toolbox-backend"
+    Export:
+      Name: ee-toolbox-dev-ECRRepositoryUri
+
+  AutoScalingGroupName:
+    Description: Dev Auto Scaling Group name
+    Value: !Ref AutoScalingGroup
+    Export:
+      Name: ee-toolbox-dev-AutoScalingGroupName
+
+  LitestreamBucketName:
+    Description: S3 bucket for dev Litestream session replication (isolated from prod)
+    Value: !Sub "ee-toolbox-dev-sessions-${AWS::AccountId}"
+    Export:
+      Name: ee-toolbox-dev-LitestreamBucketName
+
+  EC2SecurityGroupId:
+    Description: Dev EC2 security group ID (needed for post-deploy RDS ingress rule)
+    Value: !GetAtt EC2SecurityGroup.GroupId
+    Export:
+      Name: ee-toolbox-dev-EC2SecurityGroupId

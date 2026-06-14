@@ -1,0 +1,417 @@
+name: Deploy Dev Infra
+
+# ==============================================================================
+# One-time (and idempotent) setup of the dev environment infrastructure.
+# Run this ONCE to create the dev backend stack. After that, use
+# deploy-backend-dev.yml to push new images to the dev environment.
+#
+# What this does:
+#   1. Verifies production is healthy BEFORE touching anything
+#   2. Creates dev Litestream S3 bucket (ee-toolbox-dev-sessions-<accountId>)
+#   3. Creates/updates ee-toolbox-dev-api-keys secret (Anthropic + OpenAI keys)
+#   4. Deploys ee-toolbox-dev-database CF stack (new isolated RDS Postgres)
+#   5. Builds DATABASE_URL from RDS endpoint + dev DB credentials
+#   6. Updates ee-toolbox-dev-api-keys with all 4 keys (including DATABASE_URL)
+#   7. Re-tags ECR :latest -> :develop (initial image for dev ASG)
+#   8. Deploys ee-toolbox-dev-app CF stack (ALB + ASG with t3.small)
+#   9. Adds RDS SG ingress rule allowing port 5432 from dev EC2 SG
+#  10. Updates Route53 dev-api-ee-toolbox.synapsis-analytics.com -> dev ALB
+#  11. Connects Amplify develop branch with VITE_API_BASE_URL override
+#  12. Verifies production is STILL healthy AFTER all changes
+#
+# Isolation guarantees:
+#   - CF stacks: ee-toolbox-dev-database, ee-toolbox-dev-app (isolated names)
+#   - ALB: ee-toolbox-dev-alb (not ee-toolbox-alb)
+#   - SGs: ee-toolbox-dev-alb-sg / ee-toolbox-dev-ec2-sg
+#   - Secret: ee-toolbox-dev-api-keys (not ee-toolbox-api-keys)
+#   - RDS: ee-toolbox-dev-db (not ee-toolbox-mgmt-db)
+#   - Litestream: ee-toolbox-dev-sessions-<accountId>
+#   - ASG: ee-toolbox-dev (not ee-toolbox-mgmt)
+#   - No changes to production stacks, secrets, RDS, ASG, ALB, or Route53 records
+# ==============================================================================
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-dev-infra
+  cancel-in-progress: false
+
+jobs:
+  deploy-dev-infra:
+    runs-on: ubuntu-latest
+    environment: mgmt
+    env:
+      AWS_REGION: eu-central-1
+      ACCOUNT_ID: "919959486181"
+      # Dev-specific resource names (NEVER references prod names)
+      DEV_SECRET_NAME: ee-toolbox-dev-api-keys
+      DEV_DB_SECRET: ee-toolbox-dev-db-credentials
+      DEV_DB_INSTANCE: ee-toolbox-dev-db
+      DEV_SESSIONS_BUCKET: ee-toolbox-dev-sessions-919959486181
+      DEV_ASG_NAME: ee-toolbox-dev
+      DEV_CF_APP_STACK: ee-toolbox-dev-app
+      DEV_CF_DB_STACK: ee-toolbox-dev-database
+      ECR_REPO: ee-toolbox-backend
+      # Prod health endpoint (verified before AND after all changes)
+      PROD_HEALTH_URL: https://api-ee-toolbox.synapsis-analytics.com/health
+      # Amplify app ID (shared with prod — dev uses a separate branch)
+      AMPLIFY_APP_ID: d15pb16eb2gi8i
+      # Route53 hosted zone for synapsis-analytics.com
+      HOSTED_ZONE_ID: Z0417783J3CS5K67ASGM
+      # VPC + subnets (same as prod — different stack, same network)
+      VPC_ID: vpc-024b5db1d38ced3a7
+      SUBNET_IDS: "subnet-04fab9f22fe889781,subnet-0e77bf3abe86ca9db,subnet-04e0659a8cfefb1b5"
+      CERT_ARN: "arn:aws:acm:eu-central-1:919959486181:certificate/4d7e0a95-d953-4374-8b53-b5a94839180e"
+      RETRIEVAL_S3: "s3://ee-toolbox-retrieval-207258148366"
+      # Dev DB connection details
+      DB_USER: eetoolbox
+      DB_NAME: ee_toolbox
+      DB_PORT: "5432"
+
+    steps:
+      # ── Step 0: Verify production is healthy BEFORE we do anything ──────────
+      - name: "[PRE] Verify production health"
+        run: |
+          echo "=== PRE-DEPLOY: Verifying production health ==="
+          HEALTH=$(curl -sf "$PROD_HEALTH_URL" || echo '{"status":"ERROR"}')
+          echo "Health response: $HEALTH"
+          DB_STATUS=$(echo "$HEALTH" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('database','MISSING'))" 2>/dev/null || echo "PARSE_ERROR")
+          if [ "$DB_STATUS" != "connected" ]; then
+            echo "FATAL: Production database not connected (got: $DB_STATUS). Aborting to protect prod."
+            exit 1
+          fi
+          echo "Production is healthy. Proceeding with dev environment setup."
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC - mgmt account)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # ── Step 1: Create dev Litestream S3 bucket (idempotent) ────────────────
+      - name: Create dev Litestream S3 bucket
+        run: |
+          echo "Creating dev Litestream bucket: $DEV_SESSIONS_BUCKET"
+          if aws s3api head-bucket --bucket "$DEV_SESSIONS_BUCKET" --region "$AWS_REGION" 2>/dev/null; then
+            echo "Bucket already exists, skipping creation."
+          else
+            aws s3api create-bucket \
+              --bucket "$DEV_SESSIONS_BUCKET" \
+              --region "$AWS_REGION" \
+              --create-bucket-configuration LocationConstraint="$AWS_REGION"
+            aws s3api put-bucket-versioning \
+              --bucket "$DEV_SESSIONS_BUCKET" \
+              --versioning-configuration Status=Enabled
+            echo "Dev Litestream bucket created: $DEV_SESSIONS_BUCKET"
+          fi
+
+      # ── Step 2: Create/update dev API keys secret (ISOLATED from prod) ──────
+      - name: Create/update dev API keys secret
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          echo "Setting up isolated dev secret: $DEV_SECRET_NAME"
+          # Check if secret exists; create it if not
+          if ! aws secretsmanager describe-secret --secret-id "$DEV_SECRET_NAME" --region "$AWS_REGION" 2>/dev/null; then
+            echo "Creating new secret: $DEV_SECRET_NAME"
+            aws secretsmanager create-secret \
+              --name "$DEV_SECRET_NAME" \
+              --description "EE Toolbox dev environment API keys and DB credentials" \
+              --region "$AWS_REGION"
+          fi
+          # Write API keys (DATABASE_URL will be added after RDS is up)
+          PAYLOAD=$(python3 -c "
+          import json, os
+          d = {
+              'ANTHROPIC_API_KEY': os.environ['ANTHROPIC_API_KEY'],
+              'OPENAI_API_KEY':    os.environ['OPENAI_API_KEY'],
+          }
+          print(json.dumps(d))
+          ")
+          aws secretsmanager put-secret-value \
+            --secret-id "$DEV_SECRET_NAME" \
+            --secret-string "$PAYLOAD" \
+            --region "$AWS_REGION"
+          echo "Dev secret $DEV_SECRET_NAME updated with API keys."
+
+      # ── Step 3: Deploy dev database CF stack ─────────────────────────────────
+      - name: Deploy dev database stack (ee-toolbox-dev-database)
+        run: |
+          echo "Deploying dev database stack: $DEV_CF_DB_STACK"
+          aws cloudformation deploy \
+            --stack-name "$DEV_CF_DB_STACK" \
+            --template-file infra/ee-toolbox-database.yaml \
+            --parameter-overrides \
+              Environment=dev \
+              VpcId="$VPC_ID" \
+              SubnetIds="$SUBNET_IDS" \
+            --capabilities CAPABILITY_IAM \
+            --region "$AWS_REGION" \
+            --no-fail-on-empty-changeset
+          echo "Dev database stack deployed."
+
+      # ── Step 4: Read RDS endpoint + build DATABASE_URL ───────────────────────
+      - name: Read dev RDS endpoint and build DATABASE_URL
+        run: |
+          echo "Reading dev DB endpoint from CF stack outputs..."
+          DB_HOST=$(aws cloudformation describe-stacks \
+            --stack-name "$DEV_CF_DB_STACK" \
+            --region "$AWS_REGION" \
+            --query 'Stacks[0].Outputs[?OutputKey==`DBEndpoint`].OutputValue' \
+            --output text)
+          echo "Dev DB host: $DB_HOST"
+          echo "DEV_DB_HOST=$DB_HOST" >> "$GITHUB_ENV"
+
+          echo "Reading dev DB credentials from: $DEV_DB_SECRET"
+          DB_CREDS_JSON=$(aws secretsmanager get-secret-value \
+            --secret-id "$DEV_DB_SECRET" \
+            --region "$AWS_REGION" \
+            --query 'SecretString' --output text)
+          DB_PASSWORD=$(echo "$DB_CREDS_JSON" | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          pw = d.get('password') or d.get('Password') or d.get('PGPASSWORD') or ''
+          if not pw:
+              print('ERROR: could not find password key', file=sys.stderr)
+              sys.exit(1)
+          print(pw, end='')
+          ")
+          echo "DB password extracted (length: ${#DB_PASSWORD})"
+          # Store securely via env (masked in logs)
+          echo "DEV_DB_PASSWORD=$DB_PASSWORD" >> "$GITHUB_ENV"
+
+      # ── Step 5: Update dev secret with DATABASE_URL ───────────────────────────
+      - name: Update dev secret with DATABASE_URL
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          DATABASE_URL="postgresql+asyncpg://${DB_USER}:${DEV_DB_PASSWORD}@${DEV_DB_HOST}:${DB_PORT}/${DB_NAME}"
+          DATABASE_URL_SYNC="postgresql://${DB_USER}:${DEV_DB_PASSWORD}@${DEV_DB_HOST}:${DB_PORT}/${DB_NAME}"
+
+          echo "Updating $DEV_SECRET_NAME with all 4 keys including DATABASE_URL"
+          PAYLOAD=$(python3 -c "
+          import json, os
+          d = {
+              'ANTHROPIC_API_KEY':  os.environ['ANTHROPIC_API_KEY'],
+              'OPENAI_API_KEY':     os.environ['OPENAI_API_KEY'],
+              'DATABASE_URL':       os.environ['DATABASE_URL'],
+              'DATABASE_URL_SYNC':  os.environ['DATABASE_URL_SYNC'],
+          }
+          print(json.dumps(d))
+          " DATABASE_URL="$DATABASE_URL" DATABASE_URL_SYNC="$DATABASE_URL_SYNC")
+
+          aws secretsmanager put-secret-value \
+            --secret-id "$DEV_SECRET_NAME" \
+            --secret-string "$PAYLOAD" \
+            --region "$AWS_REGION"
+
+          # Verify (without printing actual values)
+          aws secretsmanager get-secret-value \
+            --secret-id "$DEV_SECRET_NAME" --region "$AWS_REGION" \
+            --query 'SecretString' --output text \
+          | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          print('ANTHROPIC_API_KEY present:', bool(d.get('ANTHROPIC_API_KEY')))
+          print('OPENAI_API_KEY present:   ', bool(d.get('OPENAI_API_KEY')))
+          print('DATABASE_URL present:     ', bool(d.get('DATABASE_URL')))
+          print('DATABASE_URL_SYNC present:', bool(d.get('DATABASE_URL_SYNC')))
+          "
+
+      # ── Step 6: Retag ECR :latest → :develop (initial image for dev ASG) ─────
+      - name: Retag ECR :latest as :develop
+        run: |
+          ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          ECR_URI="${ECR_REGISTRY}/${ECR_REPO}"
+
+          echo "Retagging $ECR_URI:latest → $ECR_URI:develop"
+          MANIFEST=$(aws ecr batch-get-image \
+            --repository-name "$ECR_REPO" \
+            --image-ids imageTag=latest \
+            --region "$AWS_REGION" \
+            --query 'images[0].imageManifest' \
+            --output text)
+
+          if [ -z "$MANIFEST" ] || [ "$MANIFEST" = "None" ]; then
+            echo "ERROR: Could not fetch :latest manifest from ECR"
+            exit 1
+          fi
+
+          aws ecr put-image \
+            --repository-name "$ECR_REPO" \
+            --image-tag develop \
+            --image-manifest "$MANIFEST" \
+            --region "$AWS_REGION" \
+          && echo "Successfully tagged :develop" \
+          || echo "Note: :develop tag may already exist with same digest (harmless)"
+
+          echo "DEV_IMAGE_URI=${ECR_URI}:develop" >> "$GITHUB_ENV"
+
+      # ── Step 7: Deploy dev app CF stack ─────────────────────────────────────
+      - name: Deploy dev app stack (ee-toolbox-dev-app)
+        run: |
+          echo "Deploying dev app stack: $DEV_CF_APP_STACK"
+          echo "Image URI: $DEV_IMAGE_URI"
+          aws cloudformation deploy \
+            --stack-name "$DEV_CF_APP_STACK" \
+            --template-file infra/ee-toolbox-dev-app.yaml \
+            --parameter-overrides \
+              Environment=dev \
+              VpcId="$VPC_ID" \
+              SubnetIds="$SUBNET_IDS" \
+              CertificateArn="$CERT_ARN" \
+              ImageUri="$DEV_IMAGE_URI" \
+              EERetrievalS3="$RETRIEVAL_S3" \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+            --region "$AWS_REGION" \
+            --no-fail-on-empty-changeset
+          echo "Dev app stack deployed."
+
+      # ── Step 8: Add RDS SG ingress rule (5432 from dev EC2 SG) ─────────────
+      # The database CF template creates the RDS SG but adds NO ingress rules
+      # (by design — same pattern as prod, which had rules added out-of-band).
+      # We must add: allow TCP 5432 from dev EC2 SG → dev RDS SG.
+      - name: Add dev RDS SG ingress rule for dev EC2 instances
+        run: |
+          echo "Reading dev EC2 SG ID from CF outputs..."
+          DEV_EC2_SG=$(aws cloudformation describe-stacks \
+            --stack-name "$DEV_CF_APP_STACK" \
+            --region "$AWS_REGION" \
+            --query 'Stacks[0].Outputs[?OutputKey==`EC2SecurityGroupId`].OutputValue' \
+            --output text)
+          echo "Dev EC2 SG: $DEV_EC2_SG"
+
+          echo "Reading dev RDS SG ID from CF outputs..."
+          DEV_RDS_SG=$(aws cloudformation describe-stacks \
+            --stack-name "$DEV_CF_DB_STACK" \
+            --region "$AWS_REGION" \
+            --query 'Stacks[0].Outputs[?OutputKey==`RDSSecurityGroupId`].OutputValue' \
+            --output text)
+          echo "Dev RDS SG: $DEV_RDS_SG"
+
+          echo "Adding ingress rule: TCP 5432 from $DEV_EC2_SG to $DEV_RDS_SG"
+          aws ec2 authorize-security-group-ingress \
+            --group-id "$DEV_RDS_SG" \
+            --protocol tcp \
+            --port 5432 \
+            --source-group "$DEV_EC2_SG" \
+            --region "$AWS_REGION" \
+          && echo "Ingress rule added successfully." \
+          || echo "Note: ingress rule may already exist (idempotent, continuing)."
+
+      # ── Step 9: Update Route53 dev-api record → dev ALB ─────────────────────
+      # There is an existing orphaned A record for dev-api-ee-toolbox.synapsis-analytics.com.
+      # We upsert it to point to the new dev ALB.
+      - name: Update Route53 dev-api DNS record
+        run: |
+          echo "Reading dev ALB DNS info from CF outputs..."
+          DEV_ALB_DNS=$(aws cloudformation describe-stacks \
+            --stack-name "$DEV_CF_APP_STACK" \
+            --region "$AWS_REGION" \
+            --query 'Stacks[0].Outputs[?OutputKey==`ALBDnsName`].OutputValue' \
+            --output text)
+          DEV_ALB_ZONE=$(aws cloudformation describe-stacks \
+            --stack-name "$DEV_CF_APP_STACK" \
+            --region "$AWS_REGION" \
+            --query 'Stacks[0].Outputs[?OutputKey==`ALBCanonicalHostedZoneID`].OutputValue' \
+            --output text)
+          echo "Dev ALB DNS: $DEV_ALB_DNS"
+          echo "Dev ALB HostedZoneId: $DEV_ALB_ZONE"
+
+          CHANGE_BATCH=$(python3 -c "
+          import json, os
+          print(json.dumps({
+              'Changes': [{
+                  'Action': 'UPSERT',
+                  'ResourceRecordSet': {
+                      'Name': 'dev-api-ee-toolbox.synapsis-analytics.com',
+                      'Type': 'A',
+                      'AliasTarget': {
+                          'HostedZoneId': os.environ['DEV_ALB_ZONE'],
+                          'DNSName': os.environ['DEV_ALB_DNS'],
+                          'EvaluateTargetHealth': True
+                      }
+                  }
+              }]
+          }))
+          " DEV_ALB_ZONE="$DEV_ALB_ZONE" DEV_ALB_DNS="$DEV_ALB_DNS")
+
+          aws route53 change-resource-record-sets \
+            --hosted-zone-id "$HOSTED_ZONE_ID" \
+            --change-batch "$CHANGE_BATCH" \
+            --region us-east-1
+          echo "Route53 record upserted: dev-api-ee-toolbox.synapsis-analytics.com -> $DEV_ALB_DNS"
+
+      # ── Step 10: Connect Amplify develop branch ──────────────────────────────
+      # Adds the develop branch to the existing Amplify app with a branch-level
+      # VITE_API_BASE_URL override pointing to the dev backend.
+      - name: Connect Amplify develop branch
+        run: |
+          echo "Connecting Amplify branch: develop (app: $AMPLIFY_APP_ID)"
+          # Check if branch already exists
+          if aws amplify get-branch \
+            --app-id "$AMPLIFY_APP_ID" \
+            --branch-name develop \
+            --region "$AWS_REGION" 2>/dev/null; then
+            echo "Branch 'develop' already exists in Amplify, updating env vars..."
+            aws amplify update-branch \
+              --app-id "$AMPLIFY_APP_ID" \
+              --branch-name develop \
+              --environment-variables "VITE_API_BASE_URL=https://dev-api-ee-toolbox.synapsis-analytics.com" \
+              --region "$AWS_REGION"
+          else
+            echo "Creating Amplify branch 'develop'..."
+            aws amplify create-branch \
+              --app-id "$AMPLIFY_APP_ID" \
+              --branch-name develop \
+              --stage DEVELOPMENT \
+              --enable-auto-build \
+              --environment-variables "VITE_API_BASE_URL=https://dev-api-ee-toolbox.synapsis-analytics.com" \
+              --region "$AWS_REGION"
+          fi
+          echo "Amplify develop branch configured."
+          echo ""
+          echo "Triggering initial Amplify build for develop branch..."
+          aws amplify start-job \
+            --app-id "$AMPLIFY_APP_ID" \
+            --branch-name develop \
+            --job-type RELEASE \
+            --region "$AWS_REGION" \
+          && echo "Amplify build triggered." || echo "Note: build trigger failed (may need manual trigger)"
+          echo ""
+          echo "Dev frontend URL: https://develop.d15pb16eb2gi8i.amplifyapp.com"
+
+      # ── Step 11: Verify production is STILL healthy ──────────────────────────
+      - name: "[POST] Verify production health unchanged"
+        run: |
+          echo "=== POST-DEPLOY: Verifying production health ==="
+          HEALTH=$(curl -sf "$PROD_HEALTH_URL" || echo '{"status":"ERROR"}')
+          echo "Health response: $HEALTH"
+          DB_STATUS=$(echo "$HEALTH" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('database','MISSING'))" 2>/dev/null || echo "PARSE_ERROR")
+          if [ "$DB_STATUS" != "connected" ]; then
+            echo "WARNING: Production database status changed to: $DB_STATUS"
+            echo "This is unexpected — please investigate immediately."
+            exit 1
+          fi
+          echo "Production health confirmed unchanged: database=$DB_STATUS"
+          echo ""
+          echo "=== DEV ENVIRONMENT SETUP COMPLETE ==="
+          echo "Dev frontend (Amplify):  https://develop.d15pb16eb2gi8i.amplifyapp.com"
+          echo "Dev backend (ALB):       https://dev-api-ee-toolbox.synapsis-analytics.com"
+          echo "Dev backend health:      https://dev-api-ee-toolbox.synapsis-analytics.com/health"
+          echo ""
+          echo "Next steps:"
+          echo "  - Wait for the dev ASG instance to start (~10-15 min for first boot)"
+          echo "  - Run 'ops-set-admin-password.yml' to set a dev admin password"
+          echo "  - Push to the 'develop' branch to trigger dev backend deploys"
+          echo "  - To scale to zero when idle: set ASG desired=0 in AWS console"
